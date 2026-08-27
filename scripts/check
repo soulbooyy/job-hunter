@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+cd "${repository_root}/backend"
+uv run --locked --no-sync ruff format --check src tests
+uv run --locked --no-sync ruff check src tests
+uv run --locked --no-sync pyright
+uv run --locked --no-sync pytest
+
+cd "${repository_root}/frontend"
+npm run format:check
+npm run lint
+npm run typecheck
+npm run build

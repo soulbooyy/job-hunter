@@ -1,0 +1,49 @@
+# Operating systems and editors
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Python environments and caches
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# JavaScript dependencies, caches, and builds
+node_modules/
+.vite/
+.eslintcache
+frontend/dist/
+
+# Local tool caches
+.cache/
+
+# Environment files; examples are safe to commit
+.env
+.env.*
+!.env.example
+!**/.env.example
+
+# Local application data and sensitive artifacts
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+chroma/
+.chroma/
+artifacts/
+diagnostics/
+screenshots/
+browser-profile/
+storage-state*.json
+cookies*.json
+*.pem
+*.key
