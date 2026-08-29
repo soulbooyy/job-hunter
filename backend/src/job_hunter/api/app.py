@@ -1,30 +1,24 @@
-"""FastAPI application composition."""
-
-from typing import Literal
+"""FastAPI application composition root."""
 
 from fastapi import FastAPI
-from pydantic import BaseModel
+
+from job_hunter.api.errors import register_exception_handlers
+from job_hunter.api.lifespan import create_lifespan
+from job_hunter.api.routers import health, jobs
+from job_hunter.application.import_job import ImportJob
 
 
-class HealthStatus(BaseModel):
-    """Liveness response contract."""
-
-    status: Literal["ok"] = "ok"
-
-
-def create_app() -> FastAPI:
+def create_app(*, import_job: ImportJob | None = None) -> FastAPI:
     """Create the local Job Hunter API application."""
-    application = FastAPI(title="Job Hunter API", version="0.1.0")
-
-    async def health() -> HealthStatus:
-        return HealthStatus()
-
-    application.add_api_route(
-        "/health",
-        health,
-        methods=["GET"],
-        response_model=HealthStatus,
+    application = FastAPI(
+        title="Job Hunter API",
+        version="0.1.0",
+        lifespan=create_lifespan(import_job),
     )
+
+    register_exception_handlers(application)
+    application.include_router(health.router)
+    application.include_router(jobs.router)
     return application
 
 

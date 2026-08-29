@@ -1,7 +1,6 @@
 from ipaddress import IPv4Address
 
 import pytest
-from fastapi.routing import APIRoute
 from pydantic import AnyHttpUrl, ValidationError
 
 import job_hunter
@@ -15,7 +14,7 @@ def test_package_is_importable() -> None:
 
 def test_fastapi_scaffold_exposes_liveness() -> None:
     assert app.title == "Job Hunter API"
-    assert "/health" in {route.path for route in app.routes if isinstance(route, APIRoute)}
+    assert str(app.url_path_for("health")) == "/health"
 
 
 def test_runtime_settings_have_loopback_defaults() -> None:

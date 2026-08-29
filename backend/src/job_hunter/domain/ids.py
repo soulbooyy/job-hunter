@@ -23,3 +23,23 @@ class RunId(_StableId):
 @dataclass(frozen=True, slots=True)
 class CorrelationId(_StableId):
     """Stable identity connecting work across local boundaries."""
+
+
+@dataclass(frozen=True, slots=True)
+class JobId(_StableId):
+    """Stable identity of a logical job across its versions."""
+
+
+@dataclass(frozen=True, slots=True)
+class JobVersionId(_StableId):
+    """Stable identity of one immutable job version."""
+
+
+@dataclass(frozen=True, slots=True)
+class SourceSnapshotId(_StableId):
+    """Stable identity of validated source data captured at one point in time."""
+
+
+@dataclass(frozen=True, slots=True)
+class SourceReferenceId(_StableId):
+    """Stable identity of a job-to-source provenance reference."""
