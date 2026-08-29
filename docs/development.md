@@ -158,6 +158,7 @@ Real providers/models, explicitly triggered BOSS smoke tests, and user-approved 
 - Use ESLint flat config with typescript-eslint. Prettier owns formatting and must not duplicate lint rules.
 - The UI depends only on versioned HTTP contracts, never backend Python implementation details.
 - Keep API clients, domain view models, and component state separate. Do not duplicate backend business rules inside components.
+- User-facing copy defaults to Simplified Chinese, including labels, controls, status and error feedback, accessibility names, and explanatory text. Preserve established product/domain/technology names such as `Job Hunter`, `Candidate Profile`, `QuickScreen`, `DeepFit`, `Evidence`, and `RAG`, plus serialized API enum values, versions, and IDs; do not translate machine contract values into alternate frontend truth.
 - Playwright tests user-visible behavior with accessible locators and mocked third-party services.
 
 ## 9. Architecture Coding Rules

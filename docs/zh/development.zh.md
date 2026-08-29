@@ -156,6 +156,7 @@ Fake model、domain、contract、workflow、repository、rendering invariants、
 - ESLint 使用 flat config 与 typescript-eslint；Prettier 只负责格式，不重复 lint 规则。
 - UI 不直接依赖 backend Python 实现，只依赖 versioned HTTP contract。
 - API client、domain view model 与 component state 分离；不得在 component 内复制后端业务规则。
+- 面向用户的文案默认使用简体中文，包括标签、控件、状态与错误反馈、可访问名称和解释文本。`Job Hunter`、`Candidate Profile`、`QuickScreen`、`DeepFit`、`Evidence`、`RAG` 等既定产品/领域/技术名称，以及序列化 API 枚举值、版本和 ID 保持原样；不得把机器 contract 值翻译成另一套前端事实。
 - Playwright 测试用户可见行为，使用可访问 locator，mock 第三方服务。
 
 ## 9. 架构编码规则

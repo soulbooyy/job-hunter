@@ -6,7 +6,7 @@ This document is the concise, rolling implementation status shared by developers
 
 - Branch: `main`
 - Latest stable implementation commit: `a3286fb` (`feat: add candidate knowledge and screening workflow`)
-- Last verified: 2026-08-29 21:55 HKT
+- Last verified: 2026-08-29 23:39 HKT
 - `./scripts/check`: passing
 
 ## Completed Slices
@@ -18,23 +18,25 @@ This document is the concise, rolling implementation status shared by developers
 | Domain versioning, lineage, and Manual Job Sources | Immutable self-validating aggregates/versions, active-version history, credential-safe manual JD/URL adapters, import use case, in-memory UoW, stable errors and HTTP contract | `a6e9fc8` |
 | FastAPI API organization and lifecycle | Composition root, lifespan-managed `ImportJob`, typed `app.state` provider, module-level Depends-based routers, centralized errors, and split contracts | `a6e9fc8` |
 | Candidate Knowledge, deterministic screening, and minimal Job Triage | Human-confirmed Profile snapshots, immutable Evidence versions, stable requirement lineage, versioned three-state QuickScreen, append-only reversible human decisions, and callable HTTP contracts | `a3286fb` |
+| Local frontend intake, screening, triage, and Evidence workspace | Runtime-validated mutation clients, session-only workflow state, Profile-relative stale warnings, append-only screening/Triage views, Manual Evidence versioning, Simplified Chinese user copy, accessible request states, and deterministic component tests | Uncommitted working tree |
 
 ## Active Slice
 
-**Goal:** no backend implementation slice is active; the Candidate Knowledge → Requirement Parsing → QuickScreen → Minimal Job Triage slice is committed and ready for the next authorized backend slice.
+**Goal:** the mutation-only frontend workspace and its Simplified Chinese user-copy policy are implemented and verified; the uncommitted slice is awaiting review and explicit commit authorization.
 
-**In Scope:** documentation alignment for the committed backend baseline and its review decisions.
+**In Scope:** App shell and feature-panel prose, labels, controls, loading/success/error feedback, accessibility names, deterministic component assertions, and aligned English-authoritative/Chinese-convenience frontend development rules.
 
-**Out of Scope:** the parallel uncommitted frontend workspace, evaluation datasets, persistence, retrieval, DeepFit, resume/material workflows, and external execution.
+**Out of Scope:** HTTP schema or backend behavior changes, translating serialized API values or established technical/product identifiers, i18n infrastructure, persistent frontend cache, and all previously deferred product capabilities.
 
-**Traceability:** REQ-KNOW-001, REQ-KNOW-002, REQ-HITL-001, AC-SCREEN-001, and the lineage, runtime-validation, strict-typing, run-ID, and correlation-ID Hard Gates. Parser quality targets remain unevaluated until the following dataset/evaluation slice.
+**Traceability:** REQ-JOB-001, REQ-JOB-002, REQ-JOB-006, REQ-KNOW-001, REQ-KNOW-002, REQ-HITL-001, AC-JOB-001, and AC-SCREEN-001. The frontend can retain only the current browser session's validated mutation responses because read/query contracts do not yet exist.
 
 ## Verification
 
-- Final `./scripts/check`: passed with Ruff format/check, Pyright strict (0 errors), 74 backend tests, frontend format/lint/typecheck, and Vite build.
+- Final `./scripts/check`: passed with Ruff format/check, Pyright strict (0 errors), 74 backend tests, frontend format/lint/typecheck, 26 Vitest API/component test cases, and Vite build.
 - Backend unit and API contract tests: 74 passed, including 17 API contract/composition tests.
 - `git diff --check`: passed.
-- Live/remote checks not run: GitHub Actions requires a later authorized push; no live network, BOSS, LLM, or database check belongs to this slice.
+- Manual localhost browser smoke: passed Profile → Manual JD Import → QuickScreen (`screen_in`) → Shortlisted against the real in-memory API, with accessible DOM state and no browser console errors.
+- Live/remote checks not run: GitHub Actions requires a later authorized push; the Playwright Web Workspace CI Hard Gate, live BOSS, LLM, and database checks were not run.
 
 ## Decisions and Deviations
 
@@ -50,6 +52,11 @@ This document is the concise, rolling implementation status shared by developers
 - `deterministic-line-parser` v1 preserves normalized JD lines, allocates Requirement IDs once per immutable JobVersion, and makes no quality claim before the dataset/evaluation slice.
 - `quick-screen-v1` uses only preferred city, target-role, and confirmed-skill signals. Recommendations and human Triage decisions are separate append-only records; reruns and new JobVersions fail stale decisions closed.
 - The expanded InMemoryStore commits Job, Candidate Knowledge, Requirement, screening, and Triage indexes together but remains explicitly single-writer with no concurrency-isolation claim.
+- Frontend JSON remains `unknown` until a strict endpoint-specific Zod schema accepts it; malformed success/error bodies and network exceptions become stable `ApiError` values without exposing raw data.
+- The SPA stores only validated mutation responses in React memory. It writes no Profile, JD, Evidence, or URL data to browser storage, logs, or navigation state; one Job workflow keeps a stable correlation ID and every mutation receives a fresh injected run ID.
+- Profile-relative stale status and current JobVersion/actionability are derived read projections. A stale-Profile result remains triageable, while a result for a historical JobVersion remains visible but cannot be used as the current action target.
+- Vite proxies `/api` and `/health` to the loopback backend by default; `VITE_API_BASE_URL` remains an explicit deployment override.
+- Frontend labels, controls, request feedback, accessibility names, and explanatory copy default to Simplified Chinese. Established product/domain names and serialized API enum values, versions, and IDs remain unchanged so localization cannot create an alternate contract truth.
 - No implementation-stage architecture deviation is currently recorded.
 
 ## Risks and Blockers
@@ -57,9 +64,10 @@ This document is the concise, rolling implementation status shared by developers
 - Remote GitHub Actions cannot be observed until the committed baseline is pushed; pushing is intentionally not authorized in this slice.
 - Runtime persistence is intentionally in-memory; process restart loses imported jobs, and overlapping UoWs may silently overwrite one another. The current adapter is supported only as a single-writer development baseline until the persistence/concurrency admission gate is implemented.
 - Parser and QuickScreen behavior is a deterministic baseline only; accuracy and promotion decisions remain unmeasured until versioned datasets and metric runners exist.
-- The backend preserves and can identify Profile snapshot lineage, but the user-facing stale-result warning and re-screen recommendation remain pending because screening read APIs and frontend feature work are outside this slice.
+- The user-facing stale-Profile warning and re-screen recommendation are implemented for mutation responses obtained in the current browser session. No GET/read endpoint exists for jobs, Profiles, Evidence, screening, or Triage, so reload/readback and cross-session stale projections remain unavailable.
+- The Playwright Web Workspace Hard Gate has not run; the deterministic Vitest component suite and manual localhost browser smoke do not replace it.
 - No current local blocker.
 
 ## Next Slice
 
-After review and explicit commit authorization, proceed to evaluation foundations: versioned Development/Holdout/Synthetic datasets, requirement ground truth, a fake model contract, baseline retrieval fixtures, and reproducible parser/QuickScreen metric runners. Chroma feasibility and Hybrid Retrieval remain the following slice and must not enter the default path before those baselines exist.
+After review and explicit commit authorization, the next frontend acceptance slice should add locked, mock-backed Playwright coverage for the current mutation-only Manual Import → QuickScreen → Triage path and backend-unavailable behavior, without claiming the broader Web Workspace Hard Gate. The backend evaluation-foundations slice remains a separate next track: versioned datasets, ground truth, fake model contracts, baseline retrieval fixtures, and reproducible parser/QuickScreen metric runners.
