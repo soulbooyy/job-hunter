@@ -3,7 +3,18 @@
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from job_hunter.domain.ids import JobId, JobVersionId, SourceReferenceId, SourceSnapshotId
+from job_hunter.domain.ids import (
+    CandidateProfileId,
+    EvidenceItemId,
+    EvidenceVersionId,
+    JobId,
+    JobVersionId,
+    QuickScreenResultId,
+    RequirementId,
+    SourceReferenceId,
+    SourceSnapshotId,
+    TriageDecisionId,
+)
 
 
 class SystemClock:
@@ -23,3 +34,21 @@ class UuidIdGenerator:
 
     def new_source_reference_id(self) -> SourceReferenceId:
         return SourceReferenceId(f"source-reference-{uuid4().hex}")
+
+    def new_candidate_profile_id(self) -> CandidateProfileId:
+        return CandidateProfileId(f"candidate-profile-{uuid4().hex}")
+
+    def new_evidence_item_id(self) -> EvidenceItemId:
+        return EvidenceItemId(f"evidence-{uuid4().hex}")
+
+    def new_evidence_version_id(self) -> EvidenceVersionId:
+        return EvidenceVersionId(f"evidence-version-{uuid4().hex}")
+
+    def new_requirement_id(self) -> RequirementId:
+        return RequirementId(f"requirement-{uuid4().hex}")
+
+    def new_quick_screen_result_id(self) -> QuickScreenResultId:
+        return QuickScreenResultId(f"quick-screen-{uuid4().hex}")
+
+    def new_triage_decision_id(self) -> TriageDecisionId:
+        return TriageDecisionId(f"triage-{uuid4().hex}")

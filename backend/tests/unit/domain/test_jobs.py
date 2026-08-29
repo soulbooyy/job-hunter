@@ -21,6 +21,7 @@ from job_hunter.domain.jobs import (
     SourceReference,
     SourceSnapshot,
 )
+from job_hunter.domain.screening import TriageDecision
 from job_hunter.errors import ConflictError, InputValidationError
 
 CAPTURED_AT = datetime(2026, 8, 27, 12, 0, tzinfo=UTC)
@@ -89,6 +90,37 @@ def test_new_version_changes_active_pointer_and_keeps_history() -> None:
         SourceSnapshotId("snapshot-001"),
         SourceSnapshotId("snapshot-002"),
     )
+    assert updated.lifecycle_status is JobLifecycleStatus.IMPORTED
+
+
+def test_screening_and_human_triage_are_explicit_reversible_transitions() -> None:
+    imported = Job.create(_version(), _reference())
+
+    screened = imported.with_screening()
+    skipped = screened.with_triage_decision(TriageDecision.SKIPPED)
+    restored = skipped.with_triage_decision(TriageDecision.SHORTLISTED)
+
+    assert screened.lifecycle_status is JobLifecycleStatus.SCREENED
+    assert skipped.lifecycle_status is JobLifecycleStatus.SKIPPED
+    assert restored.lifecycle_status is JobLifecycleStatus.SHORTLISTED
+
+
+def test_imported_job_cannot_be_triaged_before_screening() -> None:
+    imported = Job.create(_version(), _reference())
+
+    with pytest.raises(ConflictError, match="must be screened"):
+        imported.with_triage_decision(TriageDecision.SHORTLISTED)
+
+
+def test_new_job_version_invalidates_an_earlier_screening_decision() -> None:
+    job = Job.create(_version(), _reference())
+    shortlisted = job.with_screening().with_triage_decision(TriageDecision.SHORTLISTED)
+
+    updated = shortlisted.with_version(
+        _version(number=2, snapshot_id="snapshot-002"),
+        _reference(number=2),
+    )
+
     assert updated.lifecycle_status is JobLifecycleStatus.IMPORTED
 
 

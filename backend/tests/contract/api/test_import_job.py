@@ -9,29 +9,23 @@ from job_hunter.api.contracts.jobs import ImportJobResponse
 from job_hunter.application.import_job import ImportJob, ImportJobCommand, ImportJobResult
 from job_hunter.domain.jobs import SourceKind
 from job_hunter.errors import ConflictError
-from job_hunter.infrastructure.memory import InMemoryJobStore, InMemoryUnitOfWorkFactory
 from job_hunter.ingestion.manual import (
     JobSource,
-    JobSourceRegistry,
-    ManualJDSource,
     ManualSourceInput,
-    ManualURLSource,
     ValidatedSourceData,
 )
-from tests.helpers import DeterministicIdGenerator, FixedClock
+from tests.helpers import DeterministicIdGenerator, FixedClock, build_test_use_cases
 
 NOW = datetime(2026, 8, 27, 12, 0, tzinfo=UTC)
 
 
 def _app(*, sources: tuple[JobSource, ...] | None = None) -> tuple[FastAPI, ImportJob]:
-    store = InMemoryJobStore()
-    importer = ImportJob(
-        source_registry=JobSourceRegistry(sources or (ManualJDSource(), ManualURLSource())),
-        unit_of_work_factory=InMemoryUnitOfWorkFactory(store),
+    use_cases = build_test_use_cases(
         clock=FixedClock(NOW),
         id_generator=DeterministicIdGenerator(),
+        sources=sources,
     )
-    return create_app(import_job=importer), importer
+    return create_app(use_cases=use_cases), use_cases.import_job
 
 
 def test_manual_jd_api_returns_stable_structured_contract() -> None:
@@ -255,7 +249,12 @@ class _ConflictingImportJob(ImportJob):
 
 def test_api_maps_application_conflict_to_conflict_contract() -> None:
     conflicting_importer = _ConflictingImportJob()
-    application = create_app(import_job=conflicting_importer)
+    use_cases = build_test_use_cases(
+        clock=FixedClock(NOW),
+        id_generator=DeterministicIdGenerator(),
+        import_job=conflicting_importer,
+    )
+    application = create_app(use_cases=use_cases)
     with TestClient(application) as client:
         assert application.state.import_job is conflicting_importer
         response = client.post(

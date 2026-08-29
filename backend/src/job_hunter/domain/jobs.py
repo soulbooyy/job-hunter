@@ -12,6 +12,7 @@ from job_hunter.domain.ids import (
     SourceReferenceId,
     SourceSnapshotId,
 )
+from job_hunter.domain.screening import TriageDecision
 from job_hunter.errors import ConflictError, InputValidationError
 
 
@@ -27,6 +28,9 @@ class FreshnessStatus(StrEnum):
 
 class JobLifecycleStatus(StrEnum):
     IMPORTED = "imported"
+    SCREENED = "screened"
+    SHORTLISTED = "shortlisted"
+    SKIPPED = "skipped"
 
 
 def _require_aware(value: datetime, field_name: str) -> None:
@@ -184,5 +188,34 @@ class Job:
             active_version_id=version.version_id,
             version_ids=(*self.version_ids, version.version_id),
             source_references=(*self.source_references, source_reference),
-            lifecycle_status=self.lifecycle_status,
+            # A new active JobVersion invalidates any recommendation or human decision
+            # made against the previous version and returns the checkpoint to Imported.
+            lifecycle_status=JobLifecycleStatus.IMPORTED,
+        )
+
+    def with_screening(self) -> "Job":
+        return Job(
+            job_id=self.job_id,
+            active_version_id=self.active_version_id,
+            version_ids=self.version_ids,
+            source_references=self.source_references,
+            lifecycle_status=JobLifecycleStatus.SCREENED,
+        )
+
+    def with_triage_decision(self, decision: TriageDecision) -> "Job":
+        if self.lifecycle_status is JobLifecycleStatus.IMPORTED:
+            raise ConflictError("job must be screened before triage")
+        lifecycle_status = (
+            JobLifecycleStatus.SHORTLISTED
+            if decision is TriageDecision.SHORTLISTED
+            else JobLifecycleStatus.SKIPPED
+        )
+        # Decisions are recorded separately as append-only history. The Job aggregate
+        # stores only the latest business checkpoint so a user can restore/override it.
+        return Job(
+            job_id=self.job_id,
+            active_version_id=self.active_version_id,
+            version_ids=self.version_ids,
+            source_references=self.source_references,
+            lifecycle_status=lifecycle_status,
         )

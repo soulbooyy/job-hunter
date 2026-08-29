@@ -7,7 +7,7 @@ from job_hunter.application.ports import Clock
 from job_hunter.domain.ids import CorrelationId, RunId
 from job_hunter.domain.jobs import FreshnessStatus, SourceKind
 from job_hunter.errors import DependencyUnavailableError, InputValidationError
-from job_hunter.infrastructure.memory import InMemoryJobStore, InMemoryUnitOfWorkFactory
+from job_hunter.infrastructure.memory import InMemoryStore, InMemoryUnitOfWorkFactory
 from job_hunter.ingestion.manual import (
     JobSource,
     JobSourceRegistry,
@@ -23,7 +23,7 @@ NOW = datetime(2026, 8, 27, 12, 0, tzinfo=UTC)
 
 
 def _use_case(
-    store: InMemoryJobStore,
+    store: InMemoryStore,
     *,
     sources: tuple[JobSource, ...] | None = None,
     clock: Clock | None = None,
@@ -37,7 +37,7 @@ def _use_case(
 
 
 def test_manual_jd_import_creates_normalized_job_and_traversable_lineage() -> None:
-    store = InMemoryJobStore()
+    store = InMemoryStore()
     result = _use_case(store).execute(
         ImportJobCommand(
             source_input=ManualJDInput(
@@ -68,7 +68,7 @@ def test_manual_jd_import_creates_normalized_job_and_traversable_lineage() -> No
 
 
 def test_manual_url_import_updates_active_version_without_losing_history() -> None:
-    store = InMemoryJobStore()
+    store = InMemoryStore()
     importer = _use_case(store)
     first = importer.execute(
         ImportJobCommand(
@@ -114,7 +114,7 @@ def test_manual_url_import_updates_active_version_without_losing_history() -> No
 
 
 def test_invalid_input_does_not_enter_domain_state() -> None:
-    store = InMemoryJobStore()
+    store = InMemoryStore()
 
     with pytest.raises(InputValidationError, match="content is required"):
         _use_case(store).execute(
@@ -134,7 +134,7 @@ def test_invalid_input_does_not_enter_domain_state() -> None:
 
 
 def test_sensitive_manual_url_does_not_enter_domain_state() -> None:
-    store = InMemoryJobStore()
+    store = InMemoryStore()
 
     with pytest.raises(InputValidationError, match="sensitive credential"):
         _use_case(store).execute(
@@ -163,7 +163,7 @@ class _VendorFailureSource:
 
 
 def test_unexpected_boundary_errors_are_translated_before_application_escape() -> None:
-    store = InMemoryJobStore()
+    store = InMemoryStore()
 
     with pytest.raises(DependencyUnavailableError) as raised:
         _use_case(store, sources=(_VendorFailureSource(),)).execute(
@@ -189,7 +189,7 @@ class _FailingClock:
 
 
 def test_control_plane_dependency_errors_are_also_translated() -> None:
-    store = InMemoryJobStore()
+    store = InMemoryStore()
 
     with pytest.raises(DependencyUnavailableError) as raised:
         _use_case(store, clock=_FailingClock()).execute(

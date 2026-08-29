@@ -59,6 +59,13 @@ def _normalize_whitespace(value: str) -> str:
     return " ".join(value.split())
 
 
+def _normalize_description(value: str) -> str:
+    # Preserve validated line boundaries because deterministic requirement parsing
+    # treats JD bullets/lines as reviewable source units; normalize only within lines.
+    lines = tuple(_normalize_whitespace(line) for line in value.splitlines() if line.strip())
+    return "\n".join(lines)
+
+
 class ImportJob:
     def __init__(
         self,
@@ -126,7 +133,7 @@ class ImportJob:
                 title=_normalize_whitespace(snapshot.raw_title),
                 company=_normalize_whitespace(snapshot.raw_company),
                 city=_normalize_whitespace(snapshot.raw_city),
-                description=_normalize_whitespace(snapshot.raw_description),
+                description=_normalize_description(snapshot.raw_description),
                 source_snapshot_id=snapshot.snapshot_id,
                 freshness=snapshot.freshness,
                 created_at=now,

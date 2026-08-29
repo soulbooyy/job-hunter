@@ -43,3 +43,33 @@ class SourceSnapshotId(_StableId):
 @dataclass(frozen=True, slots=True)
 class SourceReferenceId(_StableId):
     """Stable identity of a job-to-source provenance reference."""
+
+
+@dataclass(frozen=True, slots=True)
+class CandidateProfileId(_StableId):
+    """Stable identity of one immutable human-confirmed profile snapshot."""
+
+
+@dataclass(frozen=True, slots=True)
+class EvidenceItemId(_StableId):
+    """Stable identity of a logical candidate evidence item."""
+
+
+@dataclass(frozen=True, slots=True)
+class EvidenceVersionId(_StableId):
+    """Stable identity of one immutable evidence version."""
+
+
+@dataclass(frozen=True, slots=True)
+class RequirementId(_StableId):
+    """Stable identity of one parsed atomic job requirement."""
+
+
+@dataclass(frozen=True, slots=True)
+class QuickScreenResultId(_StableId):
+    """Stable identity of one version-bound screening recommendation."""
+
+
+@dataclass(frozen=True, slots=True)
+class TriageDecisionId(_StableId):
+    """Stable identity of one append-only human job decision."""

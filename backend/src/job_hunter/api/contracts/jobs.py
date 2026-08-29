@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
 from job_hunter.application.import_job import ImportJobCommand, ImportJobResult
 from job_hunter.domain.ids import CorrelationId, JobId, RunId
+from job_hunter.domain.jobs import JobLifecycleStatus
 from job_hunter.ingestion.manual import ManualJDInput, ManualURLInput
 
 
@@ -94,13 +95,15 @@ class ImportJobResponse(BaseModel):
 
     @classmethod
     def from_result(cls, result: ImportJobResult) -> "ImportJobResponse":
+        if result.lifecycle_status is not JobLifecycleStatus.IMPORTED:
+            raise ValueError("job import must reset lifecycle status to imported")
         return cls(
             job_id=str(result.job_id),
             job_version_id=str(result.job_version_id),
             active_version_id=str(result.active_version_id),
             source_snapshot_id=str(result.source_snapshot_id),
             version_number=result.version_number,
-            lifecycle_status=result.lifecycle_status.value,
+            lifecycle_status="imported",
             source=ImportedSourceResponse(
                 kind=result.source_kind.value,
                 locator=result.source_locator,
