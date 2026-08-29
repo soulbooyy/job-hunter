@@ -60,6 +60,16 @@ Synthetic Edge Cases
 - BossSource failure 不阻断已保存岗位和 downstream workflow。
 - Source provenance、captured time 与 freshness 完整。
 
+### AC-PERSIST-001 — 并发写入准入
+
+持久化 Repository/UoW adapter 或任何允许 mutation 重叠的运行配置进入默认路径前，本 Hard Gate 开始适用。
+
+- 在 deterministic scenario 中，两个 UoW 必须在任一方提交前读取同一个 entity version。
+- 第一个有效 commit 成功；stale commit 不得静默覆盖，并返回稳定的 conflict/stale-version error contract。
+- rejected commit 发生后，成功状态、immutable version history、active-version pointer 与权威 lineage 必须保持相互一致。
+- 必须在获准持久化 adapter 的真实 coordination boundary 上运行该 gate。仅有进程内锁不足以证明多进程能力。
+- 未通过该 gate 的 adapter 只能用于明确标注为 single-writer 的开发或测试配置。
+
 ### AC-SCREEN-001 — Screening and Triage
 
 - QuickScreen 只输出 `SCREEN_IN/SCREEN_OUT/UNCERTAIN`。

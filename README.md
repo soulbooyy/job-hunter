@@ -36,6 +36,7 @@ Single-job BOSS outreach and result read-back are a Stretch Goal. Even when impl
 - [System architecture](docs/architecture.md)
 - [Development guide](docs/development.md)
 - [Acceptance criteria](docs/acceptance.md)
+- [Current implementation progress](docs/progress.md)
 
 The English documents are authoritative for Codex, automation, implementation, and acceptance. Chinese translations are provided for the developer:
 
@@ -45,8 +46,8 @@ The English documents are authoritative for Codex, automation, implementation, a
 - [Chinese development guide](docs/zh/development.zh.md)
 - [Chinese acceptance criteria](docs/zh/acceptance.zh.md)
 
-`spec.md` defines what to build, `architecture.md` defines how it is designed, `development.md` defines how it is built, and `acceptance.md` defines how completion is proven.
+`spec.md` defines what to build, `architecture.md` defines how it is designed, `development.md` defines how it is built, and `acceptance.md` defines how completion is proven. `progress.md` reports the current implementation state without redefining those authorities and intentionally has no Chinese copy.
 
 ## Status
 
-The project is at the initial implementation stage after product and architecture decisions were frozen. Code, dependency versions, third-party SHAs, model budgets, and feasibility findings will be added incrementally through the specified TDD workflow and bounded feasibility spikes.
+The reproducible development environment, deterministic CI workflow, and core run/correlation identifiers are established. The domain versioning and lineage foundation with first-class Manual Job Sources is implemented and verified in the current uncommitted working tree. See [Current implementation progress](docs/progress.md) for the rolling baseline, verification state, risks, and next slice.

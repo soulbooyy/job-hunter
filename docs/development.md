@@ -66,11 +66,23 @@ Use strict Red → Green → Refactor:
 
 This applies to state transitions, approval validity, versions/hashes, claim grounding, eligibility, deduplication, budgets, adapter normalization, and error mapping.
 
-### 5.2 LangGraph
+### 5.2 Persistence and Concurrent Writes
+
+Do not infer concurrency guarantees from a Repository/UoW shape or from atomic behavior in a single test transaction. Before a persistent adapter or an overlapping-write runtime is admitted:
+
+- freeze the expected-revision/active-version contract and its conflict mapping before implementation;
+- write a deterministic test in which two UoWs start from the same version, the first commits, and the stale commit cannot silently overwrite it;
+- verify that the successful state retains complete immutable history and authoritative lineage after the conflict;
+- once an in-memory fake substitutes for the admitted adapter in concurrency-sensitive tests, run the same observable contract against both;
+- test at the actual coordination boundary—database transactions or constraints for multi-process support—not only with a process-local lock.
+
+The current in-memory adapter may remain single-writer and simpler than the future persistent adapter while that limitation is explicit and unsupported concurrent configurations are not enabled.
+
+### 5.3 LangGraph
 
 Test typed state, legal and illegal routes, conditional repair, interrupt/checkpoint/resume, and budgets before implementation. Use FakeModel, FakeTool, FixedClock, and DeterministicIdGenerator. Unit and integration tests must not depend on a live provider.
 
-### 5.3 RAG, Prompts, and LLMs
+### 5.4 RAG, Prompts, and LLMs
 
 Use evaluation-driven development:
 
@@ -85,15 +97,15 @@ Dataset
 
 The Development Set may evolve. A Holdout case used for targeted tuning is leaked and must move to Development while a new Holdout case replaces it. Never tune against a Holdout example and continue describing it as unseen.
 
-### 5.4 Rendering
+### 5.5 Rendering
 
 Use typed Resume IR fixtures, structural assertions, PDF text extraction, and visual golden regression. Do not use PDF binary hashes as the sole determinism measure.
 
-### 5.5 Frontend
+### 5.6 Frontend
 
 Write component/E2E tests for critical interactions: job ingestion/triage, Evidence/DeepFit, Resume edit/preview/diff, validation/approval/export, and required failures. Do not force every CSS detail into unit-test-first development.
 
-### 5.6 Third-party Spikes
+### 5.7 Third-party Spikes
 
 Scraper, Chroma packaging, and Browser Executor may begin as bounded spikes. Every spike must:
 
@@ -131,6 +143,10 @@ Real providers/models, explicitly triggered BOSS smoke tests, and user-approved 
 - Migrations, generated code, and controlled third-party code may use separate exclusions.
 - Use constructor injection. Use FastAPI `Depends` only at API composition boundaries.
 - Inject time, IDs, models, repositories, artifacts, collectors, and executors. Tests must not rely on wall-clock time or random IDs.
+- Runtime-validate dependencies retrieved from dynamic framework state at the API boundary; `cast()` may inform static typing but cannot establish runtime correctness.
+- Keep a concrete Application Use Case injection type until a real non-subclass implementation or test substitute requires a shared Protocol. When that trigger occurs, define and contract-test the narrow Protocol, update composition typing coherently, and preserve an explicit runtime guard.
+- Add concise comments or docstrings where reviewers need intent that types and names cannot express directly: domain invariants, authoritative lineage, boundary validation and translation, transaction/failure semantics, safety controls, and deliberate scope limitations.
+- Comments explain **why** a constraint or ordering exists, not what an obvious statement does. Keep them synchronized with behavior; remove stale plans and do not use comments to justify dead code or speculative abstractions.
 
 ## 8. Frontend Engineering Standards
 
@@ -212,7 +228,14 @@ Before declaring a feature complete, confirm:
 - every new external input has runtime validation;
 - type, lint, format, and deterministic tests pass;
 - lineage, versions, hashes, and privacy behavior are covered;
+- review-critical invariants and boundary/failure semantics have concise, current comments where the code alone is insufficient;
 - errors, budget exhaustion, and boundary failures are explicit states;
 - documentation and behavior agree;
 - a capability missing a Quality Target has the specified consequence;
 - a Stretch capability missing its Release Gate remains disabled.
+
+## 15. Rolling Implementation Status
+
+`progress.md` is the concise, authoritative record of current implementation status for developers, Codex, and automation. It reports the baseline, completed and active slices, verification, implementation decisions or deviations, current risks, and the recommended next slice. It does not redefine Product, Architecture, Development, or Acceptance authority and is the only project document without a Chinese translation.
+
+Update it at the start and completion of every development slice. Keep it with the corresponding code change and replace stale status instead of appending command transcripts, chat history, temporary debugging notes, calendar schedules, or daily effort plans. Architecture changes still require `architecture.md` to be updated first.

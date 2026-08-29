@@ -66,11 +66,23 @@ Feasibility 结果无法证明安全、契约稳定或基本可用时，停止�
 
 适用范围包括状态转换、approval validity、version/hash、claim grounding、eligibility、deduplication、budget、adapter normalization 和 error mapping。
 
-### 5.2 LangGraph
+### 5.2 持久化与并发写入
+
+不得根据 Repository/UoW 的形式，或单个测试事务中的原子行为，推断系统具备并发保证。持久化 adapter 或允许重叠写入的 runtime 获准进入默认路径前：
+
+- 先冻结 expected-revision/active-version contract 及其 conflict mapping，再开始实现；
+- 编写 deterministic test：两个 UoW 从同一版本开始，第一个提交后，stale commit 不得静默覆盖；
+- 验证冲突发生后，成功提交的状态仍保留完整 immutable history 和权威 lineage；
+- 一旦内存 fake 在 concurrency-sensitive test 中替代已获准的 adapter，必须对两者运行相同的 observable contract；
+- 必须在真实 coordination boundary 上测试，例如数据库事务或约束；仅测试进程内锁不能证明多进程支持。
+
+只要限制被明确记录且未启用不受支持的并发配置，当前内存 adapter 可以继续保持 single-writer，并比未来持久化 adapter 更简单。
+
+### 5.3 LangGraph
 
 先测试 typed state、legal/illegal routes、conditional repair、interrupt/checkpoint/resume 和预算。使用 FakeModel、FakeTool、FixedClock 与 DeterministicIdGenerator。单元/集成测试不得依赖真实 provider。
 
-### 5.3 RAG、Prompt 与 LLM
+### 5.4 RAG、Prompt 与 LLM
 
 采用 evaluation-driven development：
 
@@ -85,15 +97,15 @@ Dataset
 
 Development Set 可以迭代；Holdout 泄漏后必须迁移并补充新样本。禁止根据 Holdout 个案直接调 prompt/threshold 后继续把它称为未见数据。
 
-### 5.4 Rendering
+### 5.5 Rendering
 
 使用 typed Resume IR fixtures、结构断言、PDF text extraction 和 visual golden regression。避免用 PDF binary hash 作为唯一 determinism 指标。
 
-### 5.5 Frontend
+### 5.6 Frontend
 
 对关键交互写 component/E2E tests：Job ingestion/triage、Evidence/DeepFit、Resume edit/preview/diff、validation/approval/export 与必要失败路径。不强迫每个 CSS 细节 unit-test-first。
 
-### 5.6 Third-party Spike
+### 5.7 Third-party Spike
 
 Scraper、Chroma packaging 和 Browser Executor 可以先做 bounded spike。Spike 必须：
 
@@ -131,6 +143,8 @@ Fake model、domain、contract、workflow、repository、rendering invariants、
 - Migrations、generated 和受控 third-party code 可以单独排除。
 - 使用 constructor injection；FastAPI `Depends` 只在 API composition boundary 使用。
 - 时间、ID、model、repository、artifact、collector 和 executor 通过 seam 注入，测试不得依赖 wall clock 或随机 ID。
+- 从 dynamic framework state 读取 dependency 时，必须在 API boundary 进行 runtime validation；`cast()` 可以辅助 static typing，但不能证明运行时正确性。
+- 在出现确实需要共享 Protocol 的非子类实现或测试替身之前，保持具体 Application Use Case 作为注入类型。触发条件出现后，应定义并用 contract test 验证窄 Protocol，一致地更新 composition typing，同时保留明确的 runtime guard。
 
 ## 8. Frontend 工程规范
 

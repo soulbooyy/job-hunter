@@ -60,6 +60,16 @@ Synthetic Edge Cases
 - BossSource failure does not block saved jobs or downstream workflows.
 - Source provenance, captured time, and freshness are complete.
 
+### AC-PERSIST-001 — Concurrent Write Admission
+
+This Hard Gate becomes applicable before a persistent Repository/UoW adapter or any runtime configuration that permits overlapping mutations enters the default path.
+
+- In a deterministic scenario, two UoWs read the same entity version before either commits.
+- The first valid commit succeeds; the stale commit cannot silently overwrite it and returns the stable conflict/stale-version error contract.
+- The successful state, immutable version history, active-version pointer, and authoritative lineage remain mutually consistent after the rejected commit.
+- The gate runs against the admitted persistence adapter at its real coordination boundary. A process-local-only lock is insufficient evidence for a multi-process claim.
+- An adapter that does not pass this gate remains limited to an explicitly single-writer development or test configuration.
+
 ### AC-SCREEN-001 — Screening and Triage
 
 - QuickScreen emits only `SCREEN_IN`, `SCREEN_OUT`, or `UNCERTAIN`.

@@ -117,6 +117,8 @@ SQLAlchemy、SQLite、Chroma、LangChain provider、scraper、renderer、artifac
 
 只为真实替换点或测试 seam 定义 Port，例如 Repository、UnitOfWork、ModelGateway、EvidenceRetriever、Clock、IDGenerator、ArtifactStore、Collector、Renderer 和 Executor。普通内部 helper、policy 或 value object 不创建形式主义 interface。
 
+当生产环境只有一个实现，且基于继承的测试替身已经满足真实 seam 时，API composition 可以直接依赖具体 Application Use Case。只有出现必须遵守同一 contract 的第二个非子类实现或替身时，才引入 application-level Protocol。通过 dynamic framework state 读取 lifespan-managed dependency 时，API boundary 必须执行 runtime validation；未经检查的 `cast()` 不属于 validation。若未来由 Protocol 承担该运行时边界，必须明确其 runtime-checking semantics，不得通过放宽或删除 guard 解决。
+
 ## 6. 核心领域模型
 
 ### 6.1 Job 与版本
@@ -427,6 +429,18 @@ MVP 只实现 LocalBrowserExecutor；不创建 RemoteExecutor 或 OfficialAPIExe
 持久化通过 Repository + Unit of Work 进入 SQLAlchemy/SQLite。不得承诺 SQLite 到 PostgreSQL 零成本切换，也不预实现 PostgreSQL adapter。
 
 影响生成、审批或执行的实体采用版本化；snapshot 型记录一旦创建即 immutable。Logical entity 只维护 active-version pointer。用户隐私删除可以真正删除敏感原文或文件，但保留不含敏感内容的 entity/version ID、删除时间、原因和必要 hash tombstone。
+
+### 15.1 并发写入边界
+
+当前内存 Repository/UoW 是用于开发的 deterministic single-writer adapter。单个 UoW 会原子提交其 Job、JobVersion 与 SourceSnapshot 状态，但重叠 UoW 可能相互覆盖，因为该 adapter 不提供事务隔离或 lost-update prevention。不得将其描述为生产事务实现，也不得在允许 mutation 重叠的运行配置中使用。
+
+以下任一能力进入默认运行路径前，必须完成并发写入设计：
+
+- SQLAlchemy/SQLite 或其他持久化 Repository/UoW adapter；
+- 并行 mutation use case、后台 writer，或共享权威状态的独立本地进程；
+- 多 API worker，或任何可能发生写入重叠的其他配置。
+
+获准进入默认路径的设计必须防止 silent lost update。基于版本化状态的 mutation 必须携带明确的 expected revision 或 expected active-version identifier；stale writer 必须按稳定的 conflict/stale-version taxonomy 失败，同时保持已提交版本历史和权威 lineage 完整。持久化切片可以根据 SQLite 选择数据库约束、optimistic revision check、compare-and-swap 或 serialization，但必须先冻结可观察的事务与冲突语义，再选择实现机制。仅有进程内锁不能证明具备多进程保证。
 
 ## 16. Traceability 与 Observability
 

@@ -117,6 +117,8 @@ SQLAlchemy, SQLite, Chroma, LangChain providers, scrapers, renderers, artifact s
 
 Define Ports only for real replacement or test seams, including Repository, UnitOfWork, ModelGateway, EvidenceRetriever, Clock, IDGenerator, ArtifactStore, Collector, Renderer, and Executor. Do not create ceremonial interfaces for ordinary helpers, policies, or value objects.
 
+API composition may depend directly on a concrete Application Use Case while there is one production implementation and inheritance-based test substitutes satisfy the real seam. Introduce an application-level Protocol only when a second non-subclass implementation or substitute must honor the same contract. When lifespan-managed dependencies are read from dynamic framework state, the API boundary must validate them at runtime; an unchecked `cast()` is not validation. If a Protocol later becomes that runtime boundary, make its runtime-checking semantics explicit rather than weakening or deleting the guard.
+
 ## 6. Core Domain Model
 
 ### 6.1 Job and Versions
@@ -156,6 +158,8 @@ High-confidence duplicates may be linked or merged automatically. Fuzzy results 
 ### 6.2 SourceSnapshot and Ephemeral Fields
 
 Raw collection output first becomes an isolated SourceSnapshot. Only adapter validation and normalization may produce a JobVersion. BOSS `security_id`, `lid`, and similar ephemeral fields exist only in a SourceSnapshot or ExecutionContext with `captured_at`, TTL, and source. They do not participate in canonical identity and must be reacquired or revalidated before execution.
+
+Manual URL provenance accepts only HTTP(S) locators without userinfo. Before Domain State is created, the source adapter must reject URLs whose query or fragment contains an explicitly recognized, case-insensitive secret-bearing parameter name, including token, secret, password, credential, authorization, API-key, and signature families. Ordinary query and fragment data may be retained because they can carry job identity. Rejection is fail-closed, error messages never include parameter values, and the user must provide a clean canonical URL rather than having Job Hunter silently persist or rewrite embedded credentials.
 
 ### 6.3 Requirement
 
@@ -427,6 +431,18 @@ MVP implements only LocalBrowserExecutor and creates no RemoteExecutor or Offici
 Persistence flows through Repository + Unit of Work into SQLAlchemy/SQLite. The architecture does not promise a zero-cost SQLite-to-PostgreSQL switch and does not pre-implement PostgreSQL adapters.
 
 Entities that affect generation, approval, or execution are versioned. Snapshot records are immutable after creation. Logical entities hold only an active-version pointer. Privacy deletion may physically remove sensitive content while retaining only non-sensitive entity/version IDs, deletion time, reason, and necessary hash tombstones.
+
+### 15.1 Concurrent Write Boundary
+
+The current in-memory Repository/UoW is a deterministic single-writer development adapter. One UoW commits its Job, JobVersion, and SourceSnapshot state atomically, but overlapping UoWs may overwrite changes because the adapter provides neither transaction isolation nor lost-update prevention. It must not be presented as a production transaction implementation or used in a runtime configuration that permits overlapping mutations.
+
+Concurrent-write design becomes mandatory before any of the following enters the default runtime path:
+
+- SQLAlchemy/SQLite or another persistent Repository/UoW adapter;
+- parallel mutation use cases, background writers, or independent local processes sharing authoritative state;
+- multiple API workers or any other configuration in which writes can overlap.
+
+The admitted design must prevent silent lost updates. A mutation based on versioned state carries an explicit expected revision or expected active-version identifier; a stale writer fails with the stable conflict/stale-version taxonomy, while committed version history and authoritative lineage remain intact. The persistence slice may choose database constraints, optimistic revision checks, compare-and-swap, or serialization appropriate to SQLite, but must freeze observable transaction and conflict semantics before choosing the mechanism. Process-local locking alone cannot establish a multi-process guarantee.
 
 ## 16. Traceability and Observability
 
