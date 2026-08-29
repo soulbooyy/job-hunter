@@ -76,9 +76,13 @@ QuickScreen is a low-cost screening stage before human triage. It may use only:
 
 It returns `SCREEN_IN`, `SCREEN_OUT`, or `UNCERTAIN`. It does not run full Career RAG and does not claim to provide evidence-grounded fit. The system recommendation and the user's final decision must both be retained.
 
+Each result retains the exact Candidate Profile snapshot used for screening. Creating a newer Profile does not invalidate or rewrite historical results; it makes results based on an older snapshot stale relative to the current Profile. The product must identify that state, recommend re-screening, and still allow the user to continue Human Triage with the historical result. Re-screening creates a new result and never overwrites history.
+
 ### 5.2 Human Job Triage
 
 The user may accept or override the QuickScreen recommendation and marks the job `Shortlisted` or `Skipped`. Only Shortlisted jobs enter Evidence Retrieval, DeepFitAnalysis, and material generation.
+
+When Triage uses a QuickScreen result based on a non-current Candidate Profile, the user interface must state that fact explicitly. Re-screening is recommended but is not a mandatory gate.
 
 ### 5.3 DeepFitAnalysis
 

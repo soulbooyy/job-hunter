@@ -142,7 +142,9 @@ Fake model、domain、contract、workflow、repository、rendering invariants、
 - LangGraph State 使用 TypedDict/Pydantic 等明确 contract，不使用 `dict[str, Any]`。
 - Migrations、generated 和受控 third-party code 可以单独排除。
 - 使用 constructor injection；FastAPI `Depends` 只在 API composition boundary 使用。
+- 共享 repository 或 transaction 的 application-scoped use case 必须作为一个完整 typed composition bundle 注入；不得提供可能静默拆分 dependency graph 的逐项 partial override。
 - 时间、ID、model、repository、artifact、collector 和 executor 通过 seam 注入，测试不得依赖 wall clock 或随机 ID。
+- UnitOfWorkFactory acquisition 必须包含在 Application error boundary 内。未知 acquisition failure 不得泄漏原始细节，且只有实际创建 UnitOfWork 后才调用 rollback。
 - 从 dynamic framework state 读取 dependency 时，必须在 API boundary 进行 runtime validation；`cast()` 可以辅助 static typing，但不能证明运行时正确性。
 - 在出现确实需要共享 Protocol 的非子类实现或测试替身之前，保持具体 Application Use Case 作为注入类型。触发条件出现后，应定义并用 contract test 验证窄 Protocol，一致地更新 composition typing，同时保留明确的 runtime guard。
 

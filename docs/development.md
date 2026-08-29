@@ -142,7 +142,9 @@ Real providers/models, explicitly triggered BOSS smoke tests, and user-approved 
 - LangGraph State uses TypedDict, Pydantic, or another explicit contract, never `dict[str, Any]`.
 - Migrations, generated code, and controlled third-party code may use separate exclusions.
 - Use constructor injection. Use FastAPI `Depends` only at API composition boundaries.
+- Inject application-scoped use cases that share repositories or transactions as one complete typed composition bundle; do not offer per-use-case partial overrides that can silently split the dependency graph.
 - Inject time, IDs, models, repositories, artifacts, collectors, and executors. Tests must not rely on wall-clock time or random IDs.
+- Include UnitOfWorkFactory acquisition inside the Application error boundary. Translate unknown acquisition failures without raw details, and call rollback only when a UnitOfWork was actually created.
 - Runtime-validate dependencies retrieved from dynamic framework state at the API boundary; `cast()` may inform static typing but cannot establish runtime correctness.
 - Keep a concrete Application Use Case injection type until a real non-subclass implementation or test substitute requires a shared Protocol. When that trigger occurs, define and contract-test the narrow Protocol, update composition typing coherently, and preserve an explicit runtime guard.
 - Add concise comments or docstrings where reviewers need intent that types and names cannot express directly: domain invariants, authoritative lineage, boundary validation and translation, transaction/failure semantics, safety controls, and deliberate scope limitations.

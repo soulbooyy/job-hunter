@@ -50,4 +50,4 @@ The English documents are authoritative for Codex, automation, implementation, a
 
 ## Status
 
-The reproducible development environment, deterministic CI workflow, and core run/correlation identifiers are established. The domain versioning and lineage foundation with first-class Manual Job Sources is implemented and verified in the current uncommitted working tree. See [Current implementation progress](docs/progress.md) for the rolling baseline, verification state, risks, and next slice.
+The reproducible development environment, deterministic CI workflow, core identifiers, and versioned Manual Job Import foundation are established. Candidate Knowledge, deterministic Requirement Parsing, QuickScreen, and minimal Human Job Triage are implemented and verified in the current working tree. See [Current implementation progress](docs/progress.md) for the rolling baseline, verification state, risks, and next slice.

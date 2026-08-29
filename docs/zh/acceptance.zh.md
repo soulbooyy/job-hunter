@@ -74,6 +74,9 @@ Synthetic Edge Cases
 
 - QuickScreen 只输出 `SCREEN_IN/SCREEN_OUT/UNCERTAIN`。
 - QuickScreen recommendation 与 human decision 同时保留。
+- Candidate Profile 更新不得改写或删除已有 QuickScreen result；每个历史结果都保留到实际使用 Profile snapshot 的可遍历 lineage。
+- 面向用户的 screening read model 必须把基于非当前 Profile 的结果标记为 stale 并建议重新筛选，同时仍允许用户基于该结果继续 Human Triage。
+- 重新筛选必须创建新的 QuickScreen result，不覆盖历史。
 - 用户可以恢复/覆盖被过滤岗位。
 - 只有 Shortlisted Job 进入 DeepFit 和材料工作流。
 

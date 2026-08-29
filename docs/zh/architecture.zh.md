@@ -105,6 +105,8 @@ FastAPI route 只负责 request validation、local request context、调用 use 
 
 Use Case 表达一次完整业务意图，例如 `ImportJob`、`RunQuickScreen`、`ShortlistJob`、`PrepareMaterials`、`ApproveMaterials` 和 `AuthorizeExecution`。Application 管理事务边界和 port 协作，不拥有外部 SDK 细节。
 
+获取 UnitOfWork 本身属于 Application failure boundary。未知的 factory 或 port 异常必须转换为稳定的 Job Hunter error；只有成功获取 UnitOfWork 后才允许尝试 rollback。
+
 ### 5.3 Domain
 
 Domain 拥有稳定实体、value object 与 policy，包括 Job/JobVersion、Requirement、Evidence、ResumeClaim、Approval、状态迁移、evidence eligibility、deduplication、claim grounding 和 approval validity。
@@ -118,6 +120,8 @@ SQLAlchemy、SQLite、Chroma、LangChain provider、scraper、renderer、artifac
 只为真实替换点或测试 seam 定义 Port，例如 Repository、UnitOfWork、ModelGateway、EvidenceRetriever、Clock、IDGenerator、ArtifactStore、Collector、Renderer 和 Executor。普通内部 helper、policy 或 value object 不创建形式主义 interface。
 
 当生产环境只有一个实现，且基于继承的测试替身已经满足真实 seam 时，API composition 可以直接依赖具体 Application Use Case。只有出现必须遵守同一 contract 的第二个非子类实现或替身时，才引入 application-level Protocol。通过 dynamic framework state 读取 lifespan-managed dependency 时，API boundary 必须执行 runtime validation；未经检查的 `cast()` 不属于 validation。若未来由 Protocol 承担该运行时边界，必须明确其 runtime-checking semantics，不得通过放宽或删除 guard 解决。
+
+必须共享同一 transaction 或 repository graph 的 application-scoped use case，应作为一个完整 typed bundle 进行 composition 与 override。除非 use case 被明确证明彼此独立，否则不支持逐项 partial override；composition 不得静默组合由不同 store 支撑的 dependency。
 
 ## 6. 核心领域模型
 
@@ -163,6 +167,8 @@ dedup_fingerprint = normalized_company
 
 ParsedRequirement 是 JobVersion 下的稳定、原子化需求，包含 requirement ID、文本、类型、priority（`REQUIRED/PREFERRED/UNSPECIFIED`）和 parser provenance。复合要求尽量拆分，但必须保留原文映射。
 
+初始 deterministic baseline 保留标准化后的 JD 行边界，并将每个非空 bullet/line 作为一个 source unit。它只移除已识别的 bullet prefix、去重完全相同的标准化行、通过显式关键词规则判断类型与 priority，并记录 parser name/version。Requirement ID 对每个 immutable JobVersion 只分配一次，后续 QuickScreen rerun 复用这些 ID。该 baseline 用于建立 deterministic workflow test；在 dataset/evaluation 切片完成前不声明 parser quality，model parsing 与 bounded repair 仍不在当前范围内。
+
 ### 6.4 Candidate Knowledge
 
 ```text
@@ -186,6 +192,8 @@ EvidenceChunk
 ```
 
 EvidenceItemVersion 是事实权威；EvidenceChunk 是可重建的派生索引单元。最终 ResumeClaim 绑定 EvidenceItemVersion，而不是易变化的 chunk。
+
+当前 CandidateProfile 输入是 immutable、human-confirmed 的 screening snapshot，只包含 target-role keyword、skill keyword 和 preferred city。创建新 snapshot 会更新 active profile projection，但不会删除旧 snapshot；每个 QuickScreenResult 引用实际使用的 profile ID。Evidence 继续保持独立，不会自动提升为 Profile fact，也不会被 QuickScreen 自动消费。
 
 ### 6.5 Resume 与 Claim
 
@@ -271,6 +279,12 @@ Collector 默认关闭；用户可配置采集条件、最大岗位数和受安�
 ### 8.1 QuickScreen
 
 QuickScreen 运行在 Human Triage 前，目标是低成本减少后续工作量。它使用 Job metadata、ParsedRequirement、少量 Candidate Profile 稳定事实和受限规则/模型逻辑，输出 `SCREEN_IN/SCREEN_OUT/UNCERTAIN` 与理由。它不是 Career RAG，也不输出正式 requirement-level fit。
+
+`quick-screen-v1` 是 deterministic 且刻意保守的 policy：岗位城市不在非空 preferred-city set 中时输出 `SCREEN_OUT`；城市可接受，且 title 命中 target role、ParsedRequirements 中至少包含一个已确认 skill keyword 时输出 `SCREEN_IN`；其他情况全部输出 `UNCERTAIN`。结果记录 active JobVersion、准确的 CandidateProfile snapshot、Requirement IDs、reason codes、policy version、run ID 与 correlation ID。
+
+运行 QuickScreen 会创建新的 append-only recommendation，并将 Job 移至 `Screened`。Human Triage 另行记录引用最新 recommendation 的 append-only `Shortlisted` 或 `Skipped` decision；用户之后可以覆盖任一决定。新 active JobVersion 会把 Job 返回 `Imported`，Triage 必须拒绝属于旧 JobVersion 或已经不是最新一次的 recommendation。
+
+Candidate Profile freshness 是派生的 read concern，而不是 `QuickScreenResult` 上的可变状态：通过比较结果所引用的准确 `profile_id` 与 active Candidate Profile ID，报告 `current` 或 `stale`。激活新 Profile 不得删除、改写或使历史 screening lineage 失效。当 stale-profile result 仍是 active JobVersion 的最新结果时，它仍可用于 Human Triage，但面向用户的 read model 必须显式标记并建议重新筛选。重新筛选只追加新结果，不替换旧结果。
 
 ### 8.2 DeepFitAnalysis
 

@@ -74,6 +74,9 @@ This Hard Gate becomes applicable before a persistent Repository/UoW adapter or 
 
 - QuickScreen emits only `SCREEN_IN`, `SCREEN_OUT`, or `UNCERTAIN`.
 - The QuickScreen recommendation and human decision are both retained.
+- A Candidate Profile update does not rewrite or remove earlier QuickScreen results; each historical result retains traversable lineage to the exact Profile snapshot used.
+- A user-facing screening read model labels a result based on a non-current Profile as stale and recommends re-screening, while still allowing Human Triage to proceed with that result.
+- Re-screening creates a new QuickScreen result without overwriting history.
 - The user can restore or override filtered jobs.
 - Only Shortlisted jobs enter DeepFit and material preparation.
 

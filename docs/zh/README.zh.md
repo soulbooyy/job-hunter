@@ -41,4 +41,4 @@ BOSS 单岗位投递与结果回读属于 Stretch Goal。即使实现完成，�
 
 ## 当前状态
 
-项目处于规格与架构冻结后的初始实现阶段。代码、依赖版本、第三方依赖 SHA 和模型预算将在对应 feasibility spike 与 TDD 实现中逐步落地。
+可复现开发环境、deterministic CI、核心标识符和版本化 Manual Job Import 基线已经建立。Candidate Knowledge、deterministic Requirement Parsing、QuickScreen 与最小 Human Job Triage 已在当前 working tree 中实现并通过验证；滚动状态以英文 `../progress.md` 为准，该文档按项目规则不提供中文副本。

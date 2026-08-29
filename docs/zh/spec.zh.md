@@ -74,9 +74,13 @@ QuickScreen 是 triage 前的低成本 screening，只使用：
 
 输出为 `SCREEN_IN`、`SCREEN_OUT` 或 `UNCERTAIN`。它不运行完整 Career RAG，不输出正式 evidence-grounded fit 结论。系统推荐与用户最终决定必须同时保留。
 
+每个结果保留筛选时实际使用的 Candidate Profile snapshot。创建新 Profile 不会使历史结果失效或改写历史结果；基于旧 snapshot 的结果只是在当前 Profile 语境下变为 stale。产品必须识别该状态、建议重新筛选，同时仍允许用户基于历史结果继续 Human Triage。重新筛选会创建新结果，不覆盖历史。
+
 ### 5.2 Human Job Triage
 
 用户可以接受或覆盖 QuickScreen 推荐，最终将岗位标记为 `Shortlisted` 或 `Skipped`。只有 Shortlisted 岗位进入昂贵的 Evidence Retrieval、DeepFitAnalysis 和材料生成。
+
+当 Triage 使用的 QuickScreen 结果并非基于当前 Candidate Profile 时，用户界面必须显式说明。系统建议重新筛选，但不将其设为强制 gate。
 
 ### 5.3 DeepFitAnalysis
 

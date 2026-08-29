@@ -105,6 +105,8 @@ FastAPI routes handle request validation, local request context, use-case invoca
 
 Use Cases represent complete business intents such as `ImportJob`, `RunQuickScreen`, `ShortlistJob`, `PrepareMaterials`, `ApproveMaterials`, and `AuthorizeExecution`. Application code manages transaction boundaries and port collaboration without owning external SDK details.
 
+Acquiring a UnitOfWork is part of the Application failure boundary. Unknown factory or port exceptions are translated into stable Job Hunter errors, and rollback is attempted only after a UnitOfWork was successfully acquired.
+
 ### 5.3 Domain
 
 Domain owns stable entities, value objects, and policies: Job/JobVersion, Requirement, Evidence, ResumeClaim, Approval, lifecycle transitions, evidence eligibility, deduplication, claim grounding, and approval validity.
@@ -118,6 +120,8 @@ SQLAlchemy, SQLite, Chroma, LangChain providers, scrapers, renderers, artifact s
 Define Ports only for real replacement or test seams, including Repository, UnitOfWork, ModelGateway, EvidenceRetriever, Clock, IDGenerator, ArtifactStore, Collector, Renderer, and Executor. Do not create ceremonial interfaces for ordinary helpers, policies, or value objects.
 
 API composition may depend directly on a concrete Application Use Case while there is one production implementation and inheritance-based test substitutes satisfy the real seam. Introduce an application-level Protocol only when a second non-subclass implementation or substitute must honor the same contract. When lifespan-managed dependencies are read from dynamic framework state, the API boundary must validate them at runtime; an unchecked `cast()` is not validation. If a Protocol later becomes that runtime boundary, make its runtime-checking semantics explicit rather than weakening or deleting the guard.
+
+Application-scoped use cases that must share one transaction or repository graph are composed and overridden as one complete typed bundle. Per-use-case partial overrides are not supported unless the use cases are explicitly independent; composition must not silently combine dependencies backed by different stores.
 
 ## 6. Core Domain Model
 
@@ -165,6 +169,8 @@ Manual URL provenance accepts only HTTP(S) locators without userinfo. Before Dom
 
 ParsedRequirement is a stable, atomic requirement under a JobVersion. It stores requirement ID, text, type, priority (`REQUIRED/PREFERRED/UNSPECIFIED`), and parser provenance. Compound requirements should be decomposed while preserving their mapping to the original JD text.
 
+The initial deterministic baseline preserves normalized JD line boundaries and treats each non-empty bullet/line as one source unit. It removes only recognized bullet prefixes, deduplicates exact normalized lines, applies explicit keyword rules for type/priority, and records parser name/version. Requirement IDs are allocated once per immutable JobVersion and reused by later QuickScreen runs. This baseline enables deterministic workflow tests but makes no parser-quality claim before the dataset and evaluation slice; model parsing and bounded repair remain out of scope here.
+
 ### 6.4 Candidate Knowledge
 
 ```text
@@ -188,6 +194,8 @@ EvidenceChunk
 ```
 
 EvidenceItemVersion is factual authority. EvidenceChunk is a rebuildable indexing derivative. Final ResumeClaims bind to EvidenceItemVersions, not mutable chunk IDs.
+
+The current CandidateProfile input is an immutable, human-confirmed screening snapshot containing only target-role keywords, skill keywords, and preferred cities. Creating a newer snapshot changes the active profile projection without deleting older snapshots; every QuickScreenResult references the exact profile ID it used. Evidence remains separate and is not promoted into Profile facts or consumed by QuickScreen automatically.
 
 ### 6.5 Resume and Claims
 
@@ -273,6 +281,12 @@ Collector is disabled by default. Users may configure search conditions, maximum
 ### 8.1 QuickScreen
 
 QuickScreen runs before Human Triage and reduces downstream cost. It uses Job metadata, ParsedRequirements, a limited Candidate Profile projection, and bounded rules/model logic. It emits `SCREEN_IN/SCREEN_OUT/UNCERTAIN` with reasons. It is not Career RAG and does not emit formal requirement-level fit.
+
+`quick-screen-v1` is deterministic and intentionally conservative: a job outside a non-empty preferred-city set yields `SCREEN_OUT`; an acceptable-city job with both a target-title match and at least one confirmed skill keyword in its ParsedRequirements yields `SCREEN_IN`; all other cases yield `UNCERTAIN`. The result records the active JobVersion, exact CandidateProfile snapshot, Requirement IDs, reason codes, policy version, run ID, and correlation ID.
+
+Running QuickScreen creates a new append-only recommendation and moves the Job to `Screened`. Human Triage records a separate append-only `Shortlisted` or `Skipped` decision referencing the latest recommendation. Users may override either decision later. A new active JobVersion returns the Job to `Imported`, and Triage rejects recommendations for an older JobVersion or any recommendation that is no longer latest.
+
+Candidate Profile freshness is a derived read concern, not mutable state on `QuickScreenResult`: compare the result's exact `profile_id` with the active Candidate Profile ID and report `current` or `stale`. Activating a newer Profile never deletes, rewrites, or invalidates historical screening lineage. A stale-profile result may still support Human Triage when it remains the latest result for the active JobVersion, but user-facing read models must label it and recommend re-screening. Re-screening appends a new result rather than replacing the old one.
 
 ### 8.2 DeepFitAnalysis
 
