@@ -6,6 +6,7 @@ from job_hunter.application.candidate_knowledge import CreateCandidateProfile, S
 from job_hunter.application.import_job import ImportJob
 from job_hunter.application.ports import Clock, IdGenerator
 from job_hunter.application.screening import RecordJobTriage, RunQuickScreen
+from job_hunter.application.workspace_queries import WorkspaceQueries
 from job_hunter.domain.ids import (
     CandidateProfileId,
     EvidenceItemId,
@@ -117,4 +118,5 @@ def build_test_use_cases(
             clock=clock,
             id_generator=id_generator,
         ),
+        workspace_queries=WorkspaceQueries(unit_of_work_factory=factory),
     )

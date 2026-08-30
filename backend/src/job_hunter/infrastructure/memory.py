@@ -129,6 +129,9 @@ class _InMemoryJobRepository(JobRepository):
     def __init__(self, state: _MemoryState) -> None:
         self._state = state
 
+    def list_jobs(self) -> tuple[Job, ...]:
+        return tuple(self._state.jobs.values())
+
     def get_job(self, job_id: JobId) -> Job:
         try:
             return self._state.jobs[job_id]
@@ -172,6 +175,12 @@ class _InMemoryCandidateKnowledgeRepository(CandidateKnowledgeRepository):
     def __init__(self, state: _MemoryState) -> None:
         self._state = state
 
+    def list_profiles(self) -> tuple[CandidateProfile, ...]:
+        return tuple(self._state.profiles.values())
+
+    def get_active_profile_id(self) -> CandidateProfileId | None:
+        return self._state.active_profile_id
+
     def get_profile(self, profile_id: CandidateProfileId) -> CandidateProfile:
         try:
             return self._state.profiles[profile_id]
@@ -195,6 +204,9 @@ class _InMemoryCandidateKnowledgeRepository(CandidateKnowledgeRepository):
             return self._state.evidence_items[evidence_id]
         except KeyError:
             raise EntityNotFoundError(f"evidence not found: {evidence_id}") from None
+
+    def list_evidence(self) -> tuple[EvidenceItem, ...]:
+        return tuple(self._state.evidence_items.values())
 
     def get_evidence_version(self, version_id: EvidenceVersionId) -> EvidenceItemVersion:
         try:
@@ -259,6 +271,10 @@ class _InMemoryScreeningRepository(ScreeningRepository):
         if not result_ids:
             raise EntityNotFoundError(f"quick screen result not found for job: {job_id}")
         return self._state.screen_results[result_ids[-1]]
+
+    def list_quick_screen_results(self, job_id: JobId) -> tuple[QuickScreenResult, ...]:
+        result_ids = self._state.screen_result_ids_by_job.get(job_id, ())
+        return tuple(self._state.screen_results[item_id] for item_id in result_ids)
 
     def add_quick_screen_result(self, result: QuickScreenResult) -> None:
         if result.result_id in self._state.screen_results:

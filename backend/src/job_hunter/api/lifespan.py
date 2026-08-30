@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from job_hunter.application.candidate_knowledge import CreateCandidateProfile, SaveEvidence
 from job_hunter.application.import_job import ImportJob
 from job_hunter.application.screening import RecordJobTriage, RunQuickScreen
+from job_hunter.application.workspace_queries import WorkspaceQueries
 from job_hunter.infrastructure.memory import InMemoryStore, InMemoryUnitOfWorkFactory
 from job_hunter.infrastructure.runtime import SystemClock, UuidIdGenerator
 from job_hunter.ingestion.manual import JobSourceRegistry, ManualJDSource, ManualURLSource
@@ -25,6 +26,7 @@ class ApplicationUseCases:
     save_evidence: SaveEvidence
     run_quick_screen: RunQuickScreen
     record_job_triage: RecordJobTriage
+    workspace_queries: WorkspaceQueries
 
 
 def _build_default_use_cases() -> ApplicationUseCases:
@@ -61,6 +63,7 @@ def _build_default_use_cases() -> ApplicationUseCases:
             clock=clock,
             id_generator=id_generator,
         ),
+        workspace_queries=WorkspaceQueries(unit_of_work_factory=unit_of_work_factory),
     )
 
 
@@ -79,6 +82,7 @@ def create_lifespan(use_cases_override: ApplicationUseCases | None = None) -> Ap
         application.state.save_evidence = use_cases.save_evidence
         application.state.run_quick_screen = use_cases.run_quick_screen
         application.state.record_job_triage = use_cases.record_job_triage
+        application.state.workspace_queries = use_cases.workspace_queries
         try:
             yield
         finally:
@@ -89,5 +93,6 @@ def create_lifespan(use_cases_override: ApplicationUseCases | None = None) -> Ap
             del application.state.save_evidence
             del application.state.run_quick_screen
             del application.state.record_job_triage
+            del application.state.workspace_queries
 
     return lifespan

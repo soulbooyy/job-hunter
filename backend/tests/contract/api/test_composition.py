@@ -8,6 +8,7 @@ from job_hunter.api.app import create_app
 from job_hunter.application.candidate_knowledge import CreateCandidateProfile, SaveEvidence
 from job_hunter.application.import_job import ImportJob, ImportJobCommand, ImportJobResult
 from job_hunter.application.screening import RecordJobTriage, RunQuickScreen
+from job_hunter.application.workspace_queries import WorkspaceQueries
 from tests.helpers import DeterministicIdGenerator, FixedClock, build_test_use_cases
 
 NOW = datetime(2026, 8, 29, 9, 0, tzinfo=UTC)
@@ -51,6 +52,7 @@ def test_create_app_composes_working_health_route() -> None:
         assert isinstance(application.state.save_evidence, SaveEvidence)
         assert isinstance(application.state.run_quick_screen, RunQuickScreen)
         assert isinstance(application.state.record_job_triage, RecordJobTriage)
+        assert isinstance(application.state.workspace_queries, WorkspaceQueries)
         response = client.get("/health")
 
     assert response.status_code == 200
@@ -60,6 +62,7 @@ def test_create_app_composes_working_health_route() -> None:
     assert not hasattr(application.state, "save_evidence")
     assert not hasattr(application.state, "run_quick_screen")
     assert not hasattr(application.state, "record_job_triage")
+    assert not hasattr(application.state, "workspace_queries")
 
 
 def test_lifespan_preserves_complete_explicit_use_case_bundle() -> None:
@@ -76,6 +79,7 @@ def test_lifespan_preserves_complete_explicit_use_case_bundle() -> None:
         assert application.state.save_evidence is use_cases.save_evidence
         assert application.state.run_quick_screen is use_cases.run_quick_screen
         assert application.state.record_job_triage is use_cases.record_job_triage
+        assert application.state.workspace_queries is use_cases.workspace_queries
         assert client.get("/health").status_code == 200
 
     with pytest.raises(AttributeError):
@@ -133,10 +137,18 @@ def test_openapi_keeps_existing_paths_and_response_statuses() -> None:
     evidence = document.paths["/api/v1/knowledge/evidence"].post
     screen = document.paths["/api/v1/jobs/{job_id}/screen"].post
     triage = document.paths["/api/v1/jobs/{job_id}/triage"].post
+    jobs = document.paths["/api/v1/jobs"].get
+    job_detail = document.paths["/api/v1/jobs/{job_id}"].get
+    profiles = document.paths["/api/v1/knowledge/profiles"].get
+    evidence_history = document.paths["/api/v1/knowledge/evidence"].get
     assert profile is not None
     assert evidence is not None
     assert screen is not None
     assert triage is not None
+    assert jobs is not None
+    assert job_detail is not None
+    assert profiles is not None
+    assert evidence_history is not None
     assert set(profile.responses) == {
         "201",
         "409",
@@ -164,3 +176,7 @@ def test_openapi_keeps_existing_paths_and_response_statuses() -> None:
         "422",
         "503",
     }
+    assert set(jobs.responses) == {"200", "503"}
+    assert set(job_detail.responses) == {"200", "404", "422", "503"}
+    assert set(profiles.responses) == {"200", "503"}
+    assert set(evidence_history.responses) == {"200", "503"}

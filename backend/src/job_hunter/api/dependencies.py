@@ -7,6 +7,7 @@ from fastapi import Depends, Request
 from job_hunter.application.candidate_knowledge import CreateCandidateProfile, SaveEvidence
 from job_hunter.application.import_job import ImportJob
 from job_hunter.application.screening import RecordJobTriage, RunQuickScreen
+from job_hunter.application.workspace_queries import WorkspaceQueries
 
 
 def _state_dependency[T](request: Request, name: str, expected_type: type[T]) -> T:
@@ -43,6 +44,10 @@ def get_record_job_triage(request: Request) -> RecordJobTriage:
     return _state_dependency(request, "record_job_triage", RecordJobTriage)
 
 
+def get_workspace_queries(request: Request) -> WorkspaceQueries:
+    return _state_dependency(request, "workspace_queries", WorkspaceQueries)
+
+
 ImportJobDep = Annotated[ImportJob, Depends(get_import_job)]
 CreateCandidateProfileDep = Annotated[
     CreateCandidateProfile,
@@ -51,3 +56,4 @@ CreateCandidateProfileDep = Annotated[
 SaveEvidenceDep = Annotated[SaveEvidence, Depends(get_save_evidence)]
 RunQuickScreenDep = Annotated[RunQuickScreen, Depends(get_run_quick_screen)]
 RecordJobTriageDep = Annotated[RecordJobTriage, Depends(get_record_job_triage)]
+WorkspaceQueriesDep = Annotated[WorkspaceQueries, Depends(get_workspace_queries)]

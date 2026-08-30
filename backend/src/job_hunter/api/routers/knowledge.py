@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Response
 
 from job_hunter.api.contracts.common import ErrorResponse
 from job_hunter.api.contracts.knowledge import (
@@ -11,7 +11,15 @@ from job_hunter.api.contracts.knowledge import (
     EvidenceRequest,
     EvidenceResponse,
 )
-from job_hunter.api.dependencies import CreateCandidateProfileDep, SaveEvidenceDep
+from job_hunter.api.contracts.workspace import (
+    CandidateProfileHistoryResponse,
+    EvidenceHistoryResponse,
+)
+from job_hunter.api.dependencies import (
+    CreateCandidateProfileDep,
+    SaveEvidenceDep,
+    WorkspaceQueriesDep,
+)
 
 router = APIRouter(prefix="/api/v1/knowledge", tags=["candidate-knowledge"])
 
@@ -21,6 +29,34 @@ _ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
     422: {"model": ErrorResponse},
     503: {"model": ErrorResponse},
 }
+
+
+@router.get(
+    "/profiles",
+    response_model=CandidateProfileHistoryResponse,
+    responses={503: {"model": ErrorResponse}},
+)
+async def list_candidate_profiles(
+    response: Response,
+    queries: WorkspaceQueriesDep,
+) -> CandidateProfileHistoryResponse:
+    result = queries.list_profiles()
+    response.headers["Cache-Control"] = "no-store"
+    return CandidateProfileHistoryResponse.from_result(result)
+
+
+@router.get(
+    "/evidence",
+    response_model=EvidenceHistoryResponse,
+    responses={503: {"model": ErrorResponse}},
+)
+async def list_evidence(
+    response: Response,
+    queries: WorkspaceQueriesDep,
+) -> EvidenceHistoryResponse:
+    result = queries.list_evidence()
+    response.headers["Cache-Control"] = "no-store"
+    return EvidenceHistoryResponse.from_result(result)
 
 
 @router.post(
