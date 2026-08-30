@@ -41,4 +41,6 @@ BOSS 单岗位投递与结果回读属于 Stretch Goal。即使实现完成，�
 
 ## 当前状态
 
-可复现开发环境、deterministic CI、核心标识符和版本化 Manual Job Import 基线已经建立。Candidate Knowledge、deterministic Requirement Parsing、QuickScreen 与最小 Human Job Triage 已在当前 working tree 中实现并通过验证；滚动状态以英文 `../progress.md` 为准，该文档按项目规则不提供中文副本。
+本地 Manual Job → QuickScreen → Human Triage workspace 与 backend readback 路径已经建立。后端现已包含 versioned evaluation contract、deterministic Evidence retrieval baseline、authoritative RetrievalRun lineage 和 offline replay metrics；滚动状态以英文 `../progress.md` 为准，该文档按项目规则不提供中文副本。
+
+仓库完整验证使用 `./scripts/check`，deterministic seed evaluation 使用 `./scripts/eval-replay`。Seed evaluation 仅验证机制，不表示最小 curated Dataset Gate 已通过。

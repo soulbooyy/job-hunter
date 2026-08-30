@@ -99,6 +99,8 @@ Dataset
 
 The Development Set may evolve. A Holdout case used for targeted tuning is leaked and must move to Development while a new Holdout case replaces it. Never tune against a Holdout example and continue describing it as unseen.
 
+Evaluation-foundation tests must freeze dataset validation, reference integrity, active-version ownership, eligibility exclusions and judgment eligibility, deterministic ranking/tie-breaking, Full Context completeness, retrieval-budget accounting without silent truncation, exact metric arithmetic including parser per-class metrics, and shared report/production version metadata before implementation. Seed synthetic fixtures remain intentionally small and must be labeled as runner smoke data rather than Dataset Gate evidence. Replay/fake model adapters are permitted only when an evaluation runner or contract test executes them; they never justify an unused production abstraction or a live dependency in deterministic CI.
+
 ### 5.5 Rendering
 
 Use typed Resume IR fixtures, structural assertions, PDF text extraction, and visual golden regression. Do not use PDF binary hashes as the sole determinism measure.

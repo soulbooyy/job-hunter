@@ -179,7 +179,11 @@ The Hybrid workflow permits at most one query reformulation and one supplemental
 
 ### REQ-RAG-004 — Eligibility Boundary
 
-All Retrievers share candidate scope, task type, sensitivity, permission, validity, and redaction filtering. Full Context means all eligible Evidence. When it exceeds the budget it must be recorded as not executable; implicit truncation must never be reported as Full Context.
+All Retrievers share candidate scope, task type, sensitivity, permission, validity, and redaction filtering. Full Context means all eligible Evidence. When it exceeds the retrieval budget it must be recorded as not executable; implicit truncation must never be reported as Full Context. Retrieval records both the eligible-Evidence and selected-Evidence token estimates, and any completed selection must respect its retrieval budget. ContextBuilder separately enforces the final ContextPackage budget, including Requirements, instructions, and packaging overhead.
+
+### REQ-EVAL-001 — Reproducible Evaluation Foundations
+
+Evaluation datasets, annotations, replay inputs, metric parameters, and reports must be runtime-validated and versioned. Retrieval ground truth references stable EvidenceItem IDs with explicit relevance grades, and every relevance judgment must belong to that case's complete eligible Evidence universe. A No-Evidence label requires human confirmation and is never inferred from an empty judgment list. Synthetic smoke fixtures may prove runner behavior but cannot be presented as satisfying the minimum Development or Frozen Holdout dataset gates.
 
 ## 8. Context Engineering
 

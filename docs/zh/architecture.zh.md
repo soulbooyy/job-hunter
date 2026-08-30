@@ -323,6 +323,12 @@ EvidenceRetriever
 
 SQLite 保存 authoritative Evidence 与 metadata。Chroma 只保存可重建向量索引，并记录 embedding model/provider、dimension、chunk policy 和 index version。正式采用 Chroma 前必须完成 local feasibility spike：persistence、metadata filtering、update/delete、rebuild、packaging 和 benchmark。
 
+首个 retrieval baseline 只处理从 authoritative repository 取得的 active EvidenceItemVersion。Application boundary 在 eligibility 或 retrieval 前验证每个返回 version 同时匹配所属 EvidenceItem ID 与 active-version pointer。共享 eligibility policy 仅允许 caller 明确授权 sensitivity 的 `VALID` Evidence；被排除的 ID 和原因保留在 RetrievalRun lineage 中。Retriever output 与 evaluation report 只记录稳定 ID、rank、score、reason 和版本 metadata，不复制 Candidate Evidence 内容。
+
+`FullContextRetriever` 以确定性顺序返回全部 eligible Evidence；当版本化 deterministic token estimate 超出预算时返回明确 `NOT_EXECUTABLE`。Application 与 Domain validation 分别拒绝未精确覆盖 eligible set 却声称 completed 的 Full Context result。`LexicalMetadataRetriever` 使用版本化 exact-phrase、normalized-token 与 metadata matching，并用稳定 ID 打破并列；它按 `top_k` 与 retrieval `max_tokens` 共同约束选择 ranked prefix，不会跳过超预算的高排名 Evidence 去接纳更弱 Evidence。零信号明确返回 `NO_RELEVANT_EVIDENCE`，有信号但最高排名项也无法纳入预算时返回 `NOT_EXECUTABLE`。
+
+每个 RetrievalRun 分别记录完整 eligible Evidence set 与 selected Evidence 的 token estimate；completed retrieval 的 selected estimate 必须不超过 `max_tokens`。这只是 retrieval-selection budget；未来 ContextBuilder 加入 Requirement、instruction 与 packaging overhead 后，另行负责最终 ContextPackage hard budget。
+
 ### 9.3 Deterministic Retrieval Policy
 
 - eligible tokens 在校准阈值内：Full Context；
@@ -331,6 +337,12 @@ SQLite 保存 authoritative Evidence 与 metadata。Chroma 只保存可重建向
 - 多个条件同时满足时使用固定 precedence。
 
 每次运行记录 policy version、输入统计、selected strategy 和原因。Hybrid 未达到 promotion threshold 时保留为 experimental，并回退到 Full Context 或 Lexical。
+
+Baseline slice 不实现自动 strategy selection。Application use case 接收一个已配置的 `EvidenceRetriever`，强制 Job 为 Shortlisted 且 Requirement 属于当前 JobVersion，并持久化不可变 RetrievalRun，将 Requirement 关联到实际返回的 EvidenceItemVersion。
+
+### 9.3.1 Evaluation Boundary
+
+`evals/datasets/` 下的 versioned JSON 属于不可信 IO，runner 构造 typed evaluation case 前必须通过 Pydantic validation。Dataset loader 拒绝重复 case ID、悬空或重复 judgment、指向该 case eligible Evidence universe 之外的 relevance judgment，以及未人工确认的 No-Evidence 标签。Retrieval Recall@5 在存在 relevant judgment 的 case 上做 macro average；Direct-Evidence MRR 在至少有一个 `DIRECT` judgment 的 case 上计算；No-Evidence Accuracy 只统计明确人工确认的 No-Evidence case。Parser atomic precision/recall 使用 exact normalized-text matching；priority per-class precision、recall、F1、support 与 Macro-F1 只对已匹配 atomic requirement 计算。QuickScreen 单独报告 exact-label accuracy 和 raw confusion counts，并与 production execution 共用同一个 policy-version constant。每个 metric 都包含 numerator/denominator 或 confusion count。Replay model output 仅限 evaluation，不得进入 Domain State，也不得调用 live provider。
 
 ### 9.4 Bounded Agentic RAG
 

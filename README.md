@@ -50,4 +50,6 @@ The English documents are authoritative for Codex, automation, implementation, a
 
 ## Status
 
-The reproducible development environment, deterministic CI workflow, core identifiers, and versioned Manual Job Import foundation are established. Candidate Knowledge, deterministic Requirement Parsing, QuickScreen, and minimal Human Job Triage are implemented and verified in the current working tree. See [Current implementation progress](docs/progress.md) for the rolling baseline, verification state, risks, and next slice.
+The local Manual Job → QuickScreen → Human Triage workspace and backend readback path are established. The backend now includes versioned evaluation contracts, deterministic Evidence retrieval baselines, authoritative RetrievalRun lineage, and offline replay metrics. See [Current implementation progress](docs/progress.md) for the rolling baseline, verification state, risks, and next slice.
+
+Repository verification uses `./scripts/check`; deterministic seed evaluation uses `./scripts/eval-replay`. The seed evaluation is a mechanics smoke test and does not claim that the minimum curated Dataset Gate has passed.

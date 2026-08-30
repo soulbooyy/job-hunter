@@ -52,6 +52,15 @@ Synthetic Edge Cases
 - Synthetic、Replay、Holdout、Live 单独报告。
 - 报告必须声明样本规模有限，不能声称代表全部 AI 岗位。
 
+### AC-EVAL-001 — Evaluation Foundation
+
+- Invalid dataset structure、重复 ID、悬空 judgment、指向 eligible Evidence universe 之外的 judgment 和未人工确认的 No-Evidence 标签必须在 evaluation 开始前 fail closed。
+- Full Context 与 Lexical/Metadata baseline 使用同一 eligibility input，保留准确 EvidenceItemVersion lineage，并在重复执行时保持确定性。
+- Full Context 必须返回全部 eligible Evidence 或 `NOT_EXECUTABLE`，禁止静默截断。
+- Completed retrieval run 的 selected-Evidence token estimate 必须满足 `max_tokens`，并分别报告 eligible-Evidence 与 selected-Evidence estimate。
+- Retrieval 与 parser metric 必须匹配人工计算 fixture，包含 raw counts、priority per-class precision/recall/F1/support，以及 production/evaluation 共用的版本 metadata，且不得把 Candidate Evidence 内容复制进 report。
+- `./scripts/eval-replay` 不依赖网络、数据库、model 或 browser，并明确说明 seed smoke fixture 不满足 AC-DATA-001。
+
 ## 4. Functional Hard Gates
 
 ### AC-JOB-001 — Source Independence
@@ -345,6 +354,7 @@ Fit 与 Material Workflow 必须拥有可配置、版本化、可观察且由 ru
 | REQ-JOB-001 / REQ-JOB-002 / REQ-JOB-005 / REQ-JOB-006 | AC-JOB-001、Web Workspace path 1、source/freshness contract tests |
 | REQ-JOB-003 / REQ-JOB-004 | BossSource Stretch Release Gate、adapter/three-way screening tests |
 | REQ-WORKSPACE-001 | AC-WORKSPACE-001、backend read-model contracts、browser-reload tests |
+| REQ-EVAL-001 | AC-DATA-001/002、AC-EVAL-001、reproducible replay reports |
 | REQ-KNOW-001 / REQ-KNOW-002 | Dataset Gate、AC-RAG-003、AC-TRACE-001/002 |
 | REQ-RAG-001 / REQ-RAG-002 | AC-RAG-001/002、fallback and policy-version tests |
 | REQ-RAG-003 / REQ-RAG-004 | AC-RAG-003、budget/eligibility/no-evidence tests |

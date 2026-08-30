@@ -325,6 +325,12 @@ EvidenceRetriever
 
 SQLite stores authoritative Evidence and metadata. Chroma stores only a rebuildable vector index and records embedding model/provider, dimension, chunk-policy version, and index version. A bounded local feasibility spike must validate persistence, metadata filtering, update/delete, rebuild, packaging, and benchmark performance before Chroma is frozen.
 
+The first retrieval baseline operates on active EvidenceItemVersions obtained from the authoritative repository. The Application boundary verifies that every returned version matches both the owning EvidenceItem ID and its active-version pointer before eligibility or retrieval. A shared eligibility policy admits only `VALID` Evidence whose sensitivity is explicitly allowed by the caller; excluded IDs and reasons remain in RetrievalRun lineage. Retriever outputs and evaluation reports contain stable IDs, ranks, scores, reasons, and version metadata rather than copying Candidate Evidence content.
+
+`FullContextRetriever` returns every eligible Evidence item in deterministic order or an explicit `NOT_EXECUTABLE` outcome when the versioned deterministic token estimate exceeds its budget. Application and Domain validation independently reject a completed Full Context result that does not cover the exact eligible set. `LexicalMetadataRetriever` uses versioned exact-phrase, normalized-token, and metadata matching with stable ID tie-breaking. It selects a ranked prefix constrained by both `top_k` and the retrieval `max_tokens`; it never skips an oversized higher-ranked item to admit weaker Evidence. A zero-signal result is explicit `NO_RELEVANT_EVIDENCE`, while a signaled top item that cannot fit is `NOT_EXECUTABLE`.
+
+Each RetrievalRun separately records token estimates for the complete eligible Evidence set and for the selected Evidence. A completed retrieval must keep the selected estimate within `max_tokens`. This is the retrieval-selection budget only; ContextBuilder later owns the final ContextPackage hard budget after adding Requirements, instructions, and packaging overhead.
+
 ### 9.3 Deterministic Retrieval Policy
 
 - eligible tokens within a calibrated threshold: Full Context;
@@ -333,6 +339,12 @@ SQLite stores authoritative Evidence and metadata. Chroma stores only a rebuilda
 - overlapping conditions use fixed precedence.
 
 Every run records policy version, input statistics, selected strategy, and reason. Hybrid remains experimental and falls back to Full Context or Lexical until it passes promotion thresholds.
+
+The baseline slice does not implement automatic strategy selection. The Application use case receives one configured `EvidenceRetriever`, enforces Shortlisted/current-JobVersion eligibility, and persists an immutable RetrievalRun that links the Requirement to the exact EvidenceItemVersions returned.
+
+### 9.3.1 Evaluation Boundary
+
+Versioned JSON under `evals/datasets/` is untrusted IO and must pass Pydantic validation before a runner constructs typed evaluation cases. Dataset loaders reject duplicate case IDs, dangling or duplicate judgments, relevance judgments outside the case's eligible Evidence universe, and unconfirmed No-Evidence labels. Retrieval Recall@5 is macro-averaged across cases with relevant judgments, Direct-Evidence MRR across cases with at least one `DIRECT` judgment, and No-Evidence Accuracy across explicitly human-confirmed No-Evidence cases. Parser atomic precision/recall uses exact normalized-text matching; priority per-class precision, recall, F1, support, and Macro-F1 are calculated only over matched atomic requirements. QuickScreen reports a separate exact-label accuracy and raw confusion counts, using the same policy-version constant as production execution. Every metric includes its numerator/denominator or confusion counts. Replay model outputs remain evaluation-only and cannot enter Domain State or make live-provider calls.
 
 ### 9.4 Bounded Agentic RAG
 

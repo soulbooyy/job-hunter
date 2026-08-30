@@ -99,6 +99,8 @@ Dataset
 
 Development Set 可以迭代；Holdout 泄漏后必须迁移并补充新样本。禁止根据 Holdout 个案直接调 prompt/threshold 后继续把它称为未见数据。
 
+Evaluation foundation 在实现前必须用测试冻结 dataset validation、reference integrity、active-version ownership、eligibility exclusion 与 judgment eligibility、deterministic ranking/tie-break、Full Context 完整性、无静默截断的 retrieval-budget accounting、包含 parser per-class metric 的精确 metric arithmetic，以及 production/report 共用的 version metadata。Seed synthetic fixture 必须保持小规模并明确标记为 runner smoke data，不能作为 Dataset Gate 证据。Replay/fake model adapter 只有在 evaluation runner 或 contract test 实际执行时才允许存在；它不能证明未使用的 production abstraction 有必要，也不能把 live dependency 带入 deterministic CI。
+
 ### 5.5 Rendering
 
 使用 typed Resume IR fixtures、结构断言、PDF text extraction 和 visual golden regression。避免用 PDF binary hash 作为唯一 determinism 指标。

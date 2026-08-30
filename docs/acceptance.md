@@ -52,6 +52,15 @@ Synthetic Edge Cases
 - Report Synthetic, Replay, Holdout, and Live results separately.
 - Reports must disclose the limited sample size and must not claim representation of all AI roles.
 
+### AC-EVAL-001 — Evaluation Foundation
+
+- Invalid dataset structure, duplicate IDs, dangling judgments, judgments outside the eligible Evidence universe, and unconfirmed No-Evidence labels fail closed before evaluation begins.
+- Full Context and Lexical/Metadata baselines apply the same eligibility input, preserve exact EvidenceItemVersion lineage, and are deterministic under repeated execution.
+- Full Context either returns all eligible Evidence or `NOT_EXECUTABLE`; it never silently truncates.
+- Completed retrieval runs keep selected-Evidence token estimates within `max_tokens` and report eligible-Evidence and selected-Evidence estimates separately.
+- Retrieval and parser metrics match hand-calculated fixtures, include raw counts, priority per-class precision/recall/F1/support, and shared production/evaluation version metadata, and do not copy Candidate Evidence content into reports.
+- `./scripts/eval-replay` runs without network, database, model, or browser dependencies and clearly reports that seed smoke fixtures do not satisfy AC-DATA-001.
+
 ## 4. Functional Hard Gates
 
 ### AC-JOB-001 — Source Independence
@@ -345,6 +354,7 @@ Collect a real manual Time-to-Application baseline only after entering real usag
 | REQ-JOB-001 / REQ-JOB-002 / REQ-JOB-005 / REQ-JOB-006 | AC-JOB-001, Web Workspace path 1, source/freshness contract tests |
 | REQ-JOB-003 / REQ-JOB-004 | BossSource Stretch Release Gate, adapter and three-way screening tests |
 | REQ-WORKSPACE-001 | AC-WORKSPACE-001, backend read-model contracts, browser-reload tests |
+| REQ-EVAL-001 | AC-DATA-001/002, AC-EVAL-001, reproducible replay reports |
 | REQ-KNOW-001 / REQ-KNOW-002 | Dataset Gates, AC-RAG-003, AC-TRACE-001/002 |
 | REQ-RAG-001 / REQ-RAG-002 | AC-RAG-001/002, fallback and policy-version tests |
 | REQ-RAG-003 / REQ-RAG-004 | AC-RAG-003, budget/eligibility/no-evidence tests |

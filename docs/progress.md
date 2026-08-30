@@ -5,8 +5,8 @@ This document is the concise, rolling implementation status shared by developers
 ## Current Baseline
 
 - Branch: `main`
-- Latest stable implementation commit: current HEAD (`test(frontend): complete web workspace path one`)
-- Last verified: 2026-08-30 16:12 HKT
+- Latest stable implementation commit: `e78ebea` (`feat: add deterministic retrieval evaluation foundations`)
+- Last verified: 2026-08-30 21:13 HKT
 - `./scripts/check`: passing
 
 ## Completed Slices
@@ -22,22 +22,24 @@ This document is the concise, rolling implementation status shared by developers
 | Workspace read models and browser-reload readback | Resource-oriented Job, Profile, and Evidence GET contracts; immutable lineage histories; deterministic current/stale and Triage-eligibility projections; no-store responses; shared lifespan composition | `6340e36` |
 | Frontend Workspace readback adoption | Strict GET runtime contracts, browser-reload hydration, multi-Job selection, complete lineage views, backend-derived screening actionability, mutation resynchronization, and accessible retry/error states | `83c1e67` |
 | Deterministic Workspace Playwright coverage | Mock-backed Chromium coverage for reload reconstruction, Job selection, stale-Profile Triage eligibility, historical JobVersion ineligibility, and Triage request targeting; unified local and CI check integration | `83c1e67` |
-| Web Workspace path 1 completion | Stateful mock-backed Candidate Profile → Manual JD → QuickScreen → Human Triage browser flow, mutation/readback resynchronization, reload reconstruction, and backend-unavailable retry recovery | Current commit |
+| Web Workspace path 1 completion | Stateful mock-backed Candidate Profile → Manual JD → QuickScreen → Human Triage browser flow, mutation/readback resynchronization, reload reconstruction, and backend-unavailable retry recovery | `11fa7ea` |
+| Evaluation foundations and deterministic retrieval baselines | Runtime-validated smoke dataset and rubric, shared Evidence eligibility, Full Context/Lexical-Metadata retrievers, immutable RetrievalRun lineage, exact retrieval/parser/QuickScreen metrics, structured replay validation, and offline replay entry point | `e78ebea` |
 
 ## Active Slice
 
-**Goal:** Web Workspace path 1 and backend-unavailable recovery are complete, locally verified, and committed; frontend product expansion is paused pending new backend contracts.
+**Goal:** no development slice is active; the reviewed evaluation-foundation and deterministic retrieval-baseline implementation is the stable backend baseline.
 
-**In Scope:** stateful mock-backed mutation/readback contracts, accessible browser interactions for Candidate Profile → Manual JD → QuickScreen → Human Triage, post-mutation resynchronization and reload reconstruction, stable network-unavailable feedback, explicit retry recovery, and deterministic request-target assertions.
+**In Scope:** none until the next slice is explicitly authorized.
 
-**Out of Scope:** backend changes, live API/BOSS/LLM/database dependencies, visual snapshots, cross-browser coverage, SQLAlchemy/SQLite/Alembic, backend-restart recovery, DeepFit, RAG, resume/material workflows, and Browser Executor behavior.
+**Out of Scope:** minimum curated Dataset Gate completion, frontend or HTTP changes, SQLite/SQLAlchemy/Alembic, Chroma/embedding/Hybrid retrieval, automatic RetrievalPolicy routing, ContextBuilder, DeepFit, LangGraph, prompt tuning, live LLM/BOSS/browser dependencies, and material generation.
 
-**Traceability:** REQ-WORKSPACE-001, AC-WORKSPACE-001, AC-SCREEN-001, Web Workspace path 1 readback/Triage subset, and the lineage, runtime-validation, strict-typing, error-boundary, and privacy Hard Gates.
+**Traceability:** REQ-EVAL-001, REQ-KNOW-002, REQ-RAG-001, REQ-RAG-004, AC-DATA-001/002, AC-EVAL-001, AC-RAG-003, parser quality targets, and the lineage, runtime-validation, strict-typing, error-boundary, and privacy Hard Gates.
 
 ## Verification
 
-- Final `./scripts/check`: passed with Ruff format/check, Pyright strict (0 errors), 84 backend tests, frontend format/lint/typecheck, 36 Vitest API/component test cases, 4 Playwright Chromium E2E cases, and Vite build.
-- Backend unit and API contract tests: 84 passed, including 21 API contract/composition tests.
+- Final `./scripts/check`: passed with Ruff format/check, Pyright strict (0 errors), 118 backend tests, frontend format/lint/typecheck, 36 Vitest API/component test cases, 4 Playwright Chromium E2E cases, and Vite build.
+- Backend unit and API contract tests: 118 passed, including 21 API contract/composition tests and 34 retrieval/evaluation tests.
+- `./scripts/eval-replay`: passed offline against `smoke-v1`; the report records all dataset/parser/retriever/policy versions, contains no Evidence content, and explicitly reports that AC-DATA-001 is not satisfied.
 - `git diff --check`: passed.
 - Manual localhost browser smoke: passed Profile and Manual JD creation followed by browser reload; the real in-memory API restored the Job, Profile, SourceSnapshot, and parsed Requirement state with no browser console errors.
 - Playwright Workspace suite: 4 passed against deterministic browser-level HTTP mocks, covering full Manual JD path 1, post-mutation readback and reload, Job switching, stale/current/historical projections, enabled/disabled Triage controls, selected QuickScreenResult targeting, and safe network-unavailable retry recovery.
@@ -56,6 +58,10 @@ This document is the concise, rolling implementation status shared by developers
 - UnitOfWorkFactory failures in Evidence, QuickScreen, and Job Triage are converted before any transaction exists; rollback is attempted only after a UoW was successfully constructed, and raw dependency details do not cross the Application boundary.
 - `deterministic-line-parser` v1 preserves normalized JD lines, allocates Requirement IDs once per immutable JobVersion, and makes no quality claim before the dataset/evaluation slice.
 - `quick-screen-v1` uses only preferred city, target-role, and confirmed-skill signals. Recommendations and human Triage decisions are separate append-only records; reruns and new JobVersions fail stale decisions closed.
+- `evidence-eligibility-v1` receives only repository values that match both the owning EvidenceItem and its active-version pointer, then admits `VALID` Evidence whose sensitivity is explicitly allowed. Retrieval adapters cannot create factual lineage: mismatched active versions or unknown returned IDs fail closed before retrieval or commit, and evaluation judgments outside the same eligible universe are invalid.
+- `full-context-v1` returns the exact eligible set or `NOT_EXECUTABLE` without truncation; Application and Domain both enforce its strategy semantics. `lexical-metadata-v1` uses exact phrase, normalized tokens, metadata signals, top-k, stable ID tie-breaking, and a deterministic ranked-prefix token budget. RetrievalRun records eligible and selected token estimates separately; ContextBuilder retains responsibility for the later final-package budget.
+- Parser reports expose per-priority precision, recall, F1, support, raw confusion counts, and Macro-F1. Production QuickScreen and evaluation reports use one shared policy-version constant.
+- `smoke-v1` is a hand-authored synthetic mechanics fixture, not a quality dataset. Its perfect parser/QuickScreen numbers and baseline retrieval differences support no product-quality claim; the AC-DATA-001 curated corpus remains outstanding.
 - The expanded InMemoryStore commits Job, Candidate Knowledge, Requirement, screening, and Triage indexes together but remains explicitly single-writer with no concurrency-isolation claim.
 - Frontend JSON remains `unknown` until a strict endpoint-specific Zod schema accepts it; malformed success/error bodies and network exceptions become stable `ApiError` values without exposing raw data.
 - The SPA stores only validated mutation responses in React memory. It writes no Profile, JD, Evidence, or URL data to browser storage, logs, or navigation state; one Job workflow keeps a stable correlation ID and every mutation receives a fresh injected run ID.
@@ -74,11 +80,11 @@ This document is the concise, rolling implementation status shared by developers
 
 - Remote GitHub Actions cannot be observed until the committed baseline is pushed; pushing is intentionally not authorized in this slice.
 - Runtime persistence is intentionally in-memory; process restart loses imported jobs, and overlapping UoWs may silently overwrite one another. The current adapter is supported only as a single-writer development baseline until the persistence/concurrency admission gate is implemented.
-- Parser and QuickScreen behavior is a deterministic baseline only; accuracy and promotion decisions remain unmeasured until versioned datasets and metric runners exist.
+- Parser, QuickScreen, and baseline retrieval now have reproducible metric runners, but only synthetic smoke cases exist. Quality and promotion decisions remain unmeasured until the curated Development and Frozen Holdout minimums are independently annotated.
 - Browser reload now restores the Workspace while the in-memory backend process remains alive; backend restart still loses all workspace data.
 - Web Workspace path 1 and backend-unavailable recovery now pass locally. The complete Web Workspace Hard Gate remains open until paths 2–5 and their required failure cases exist; remote GitHub CI execution is not observable before an authorized commit and push.
 - No current local blocker.
 
 ## Next Slice
 
-Do not start another frontend product slice until the backend publishes the next frozen HTTP contracts. The likely continuation is path 3, Shortlist → Evidence Retrieval/DeepFit → material generation; paths 2–5 remain gated on their corresponding backend/product slices.
+After review and explicit commit authorization, the recommended next backend slice is SQLAlchemy/SQLite/Alembic persistence with the already required stale-writer/concurrent-write admission contract. Only after that durable authoritative baseline should the project run the bounded Chroma feasibility spike and implement Hybrid Retrieval, RetrievalPolicy, and ContextBuilder. No new frontend product slice should start until those backend HTTP contracts are frozen.

@@ -177,7 +177,11 @@ Hybrid workflow 最多允许一次 query reformulation 与一次 supplemental re
 
 ### REQ-RAG-004 — Eligibility Boundary
 
-所有 Retriever 共享 candidate scope、task type、sensitivity、permission、validity 和 redaction filtering。Full Context 指全部 eligible Evidence；超出预算时必须明确不可执行，禁止隐式截断后仍宣称 Full Context。
+所有 Retriever 共享 candidate scope、task type、sensitivity、permission、validity 和 redaction filtering。Full Context 指全部 eligible Evidence；超出 retrieval budget 时必须明确不可执行，禁止隐式截断后仍宣称 Full Context。Retrieval 分别记录 eligible Evidence 与 selected Evidence 的 token estimate，任何 completed selection 都必须满足自身 retrieval budget。ContextBuilder 另行强制包含 Requirement、instruction 与 packaging overhead 的最终 ContextPackage budget。
+
+### REQ-EVAL-001 — Reproducible Evaluation Foundations
+
+Evaluation dataset、annotation、replay input、metric 参数和 report 必须通过 runtime validation 并保持版本化。Retrieval ground truth 使用稳定 EvidenceItem ID 和明确 relevance grade，每个 relevance judgment 都必须属于该 case 的完整 eligible Evidence universe。No-Evidence 标签必须由人工确认，不能从空 judgment list 推断。Synthetic smoke fixture 可以证明 runner 行为，但不能宣称满足 Development 或 Frozen Holdout 的最小 dataset gate。
 
 ## 8. Context Engineering
 
