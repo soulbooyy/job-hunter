@@ -21,7 +21,7 @@
 
 1. Repository scaffold、toolchain、CI、typed config 与核心 IDs。
 2. Domain model、versioning、lineage、Repository/UoW 与 Manual Job Sources。
-3. Candidate Profile、EvidenceItem/Version、Requirement parsing 与 QuickScreen。
+3. Candidate Profile、EvidenceItem/Version、Requirement parsing、QuickScreen 与 Workspace readback。
 4. Evaluation datasets、fake model、baseline retrievers 与 metric runners。
 5. Chroma feasibility、Hybrid Retriever、RetrievalPolicy 与 ContextBuilder。
 6. RuntimeContextManager、Capability Policy 与 LangGraph typed workflow。
@@ -77,6 +77,8 @@ Feasibility 结果无法证明安全、契约稳定或基本可用时，停止�
 - 必须在真实 coordination boundary 上测试，例如数据库事务或约束；仅测试进程内锁不能证明多进程支持。
 
 只要限制被明确记录且未启用不受支持的并发配置，当前内存 adapter 可以继续保持 single-writer，并比未来持久化 adapter 更简单。
+
+Read-model test 必须覆盖 deterministic ordering、active pointer、immutable history、cross-entity lineage、empty collection、稳定 not-found behavior 与派生 actionability。浏览器刷新恢复声明必须有 contract evidence 证明 mutation result 可由 backend GET response 重建；该声明不代表 backend restart durability。
 
 ### 5.3 LangGraph
 

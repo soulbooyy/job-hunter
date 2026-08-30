@@ -80,6 +80,15 @@ Synthetic Edge Cases
 - 用户可以恢复/覆盖被过滤岗位。
 - 只有 Shortlisted Job 进入 DeepFit 和材料工作流。
 
+### AC-WORKSPACE-001 — Workspace Readback
+
+- 空 Job、Profile 与 Evidence collection 返回 typed `200` response，不构造虚假 entity。
+- 完成 deterministic mutation fixture 后，GET read model 必须无丢失、无乱序地重建 active pointer、immutable version、source/freshness lineage、ParsedRequirements、QuickScreen result 与 Triage decision。
+- QuickScreen result 只因存在更新的 active Candidate Profile 而成为 `stale`；Profile staleness 本身不使 Triage 失去资格。
+- 属于 historical JobVersion 或已不再 latest 的 result 仍可读取，但不得标记为 Triage-eligible。
+- 未知 Job detail 返回稳定 `404` ErrorResponse，dependency failure 返回稳定 `503` contract，且敏感 read response 包含 `Cache-Control: no-store`。
+- Readback test 可以证明 in-memory backend 仍存活时的浏览器刷新恢复，但不得声明 backend restart durability。
+
 ### AC-FIT-001 — Deep Fit Structure
 
 - 成功解析的 atomic Requirement 全部拥有 stable requirement ID。
@@ -335,6 +344,7 @@ Fit 与 Material Workflow 必须拥有可配置、版本化、可观察且由 ru
 |---|---|
 | REQ-JOB-001 / REQ-JOB-002 / REQ-JOB-005 / REQ-JOB-006 | AC-JOB-001、Web Workspace path 1、source/freshness contract tests |
 | REQ-JOB-003 / REQ-JOB-004 | BossSource Stretch Release Gate、adapter/three-way screening tests |
+| REQ-WORKSPACE-001 | AC-WORKSPACE-001、backend read-model contracts、browser-reload tests |
 | REQ-KNOW-001 / REQ-KNOW-002 | Dataset Gate、AC-RAG-003、AC-TRACE-001/002 |
 | REQ-RAG-001 / REQ-RAG-002 | AC-RAG-001/002、fallback and policy-version tests |
 | REQ-RAG-003 / REQ-RAG-004 | AC-RAG-003、budget/eligibility/no-evidence tests |

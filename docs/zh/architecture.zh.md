@@ -101,11 +101,15 @@ Infrastructure Adapters
 
 FastAPI route 只负责 request validation、local request context、调用 use case、response mapping 和错误映射。它不得直接写 SQL、查询 Chroma、调用 LLM、运行 scraper 或操作浏览器。
 
+Workspace readback 使用 resource-oriented GET contract，分别读取 Job collection、单个完整 Job read model、Candidate Profile snapshots 与 Evidence histories。Job read model 包含版本/source/Requirement lineage 以及 QuickScreen/Triage history；API 不直接暴露 Domain object，也不提供 catch-all `/workspace` dump。包含 Candidate Knowledge 或 Job content 的响应必须设置 `Cache-Control: no-store`。
+
 ### 5.2 Application
 
 Use Case 表达一次完整业务意图，例如 `ImportJob`、`RunQuickScreen`、`ShortlistJob`、`PrepareMaterials`、`ApproveMaterials` 和 `AuthorizeExecution`。Application 管理事务边界和 port 协作，不拥有外部 SDK 细节。
 
 获取 UnitOfWork 本身属于 Application failure boundary。未知的 factory 或 port 异常必须转换为稳定的 Job Hunter error；只有成功获取 UnitOfWork 后才允许尝试 rollback。
+
+`WorkspaceQueries` 从一个 UnitOfWork snapshot 构造每个 read model，deterministic 地排序 immutable history，并依据权威 active pointer 派生 `current/stale`、latest-result 与 Triage-eligibility 字段。这些字段仅是 projection，不得写回 Domain State。
 
 ### 5.3 Domain
 

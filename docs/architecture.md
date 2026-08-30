@@ -101,11 +101,15 @@ Infrastructure Adapters
 
 FastAPI routes handle request validation, local request context, use-case invocation, response mapping, and error mapping. They do not write SQL or call Chroma, LLMs, scrapers, or browsers directly.
 
+Workspace readback uses resource-oriented GET contracts for the Job collection, one complete Job read model, Candidate Profile snapshots, and Evidence histories. The Job read model contains its version/source/Requirement lineage plus QuickScreen and Triage history; the API does not expose Domain objects or introduce a catch-all `/workspace` dump. Responses containing Candidate Knowledge or Job content use `Cache-Control: no-store`.
+
 ### 5.2 Application
 
 Use Cases represent complete business intents such as `ImportJob`, `RunQuickScreen`, `ShortlistJob`, `PrepareMaterials`, `ApproveMaterials`, and `AuthorizeExecution`. Application code manages transaction boundaries and port collaboration without owning external SDK details.
 
 Acquiring a UnitOfWork is part of the Application failure boundary. Unknown factory or port exceptions are translated into stable Job Hunter errors, and rollback is attempted only after a UnitOfWork was successfully acquired.
+
+`WorkspaceQueries` constructs each read model from one UnitOfWork snapshot. It deterministically orders immutable histories and derives `current/stale`, latest-result, and Triage-eligibility fields from authoritative active pointers. These fields are projections only and are never written back into Domain State.
 
 ### 5.3 Domain
 

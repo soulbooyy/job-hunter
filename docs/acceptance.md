@@ -80,6 +80,15 @@ This Hard Gate becomes applicable before a persistent Repository/UoW adapter or 
 - The user can restore or override filtered jobs.
 - Only Shortlisted jobs enter DeepFit and material preparation.
 
+### AC-WORKSPACE-001 — Workspace Readback
+
+- Empty Job, Profile, and Evidence collections return typed `200` responses rather than fabricated entities.
+- After deterministic mutation fixtures, GET read models reproduce active pointers, immutable versions, source/freshness lineage, ParsedRequirements, QuickScreen results, and Triage decisions without loss or reordering.
+- A QuickScreen result is `stale` only relative to a newer active Candidate Profile; Profile staleness does not by itself make Triage ineligible.
+- A result for a historical JobVersion or a result that is no longer latest remains readable but is not Triage-eligible.
+- Unknown Job detail returns the stable `404` ErrorResponse, dependency failures return the stable `503` contract, and sensitive read responses include `Cache-Control: no-store`.
+- Readback tests may prove browser-reload recovery while the in-memory backend remains alive, but must not claim backend-restart durability.
+
 ### AC-FIT-001 — Deep Fit Structure
 
 - Every successfully parsed atomic Requirement has a stable requirement ID.
@@ -335,6 +344,7 @@ Collect a real manual Time-to-Application baseline only after entering real usag
 |---|---|
 | REQ-JOB-001 / REQ-JOB-002 / REQ-JOB-005 / REQ-JOB-006 | AC-JOB-001, Web Workspace path 1, source/freshness contract tests |
 | REQ-JOB-003 / REQ-JOB-004 | BossSource Stretch Release Gate, adapter and three-way screening tests |
+| REQ-WORKSPACE-001 | AC-WORKSPACE-001, backend read-model contracts, browser-reload tests |
 | REQ-KNOW-001 / REQ-KNOW-002 | Dataset Gates, AC-RAG-003, AC-TRACE-001/002 |
 | REQ-RAG-001 / REQ-RAG-002 | AC-RAG-001/002, fallback and policy-version tests |
 | REQ-RAG-003 / REQ-RAG-004 | AC-RAG-003, budget/eligibility/no-evidence tests |

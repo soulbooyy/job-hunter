@@ -137,6 +137,12 @@ Collector failure must not block existing jobs, Manual Import, DeepFit, Career R
 
 Jobs must retain source, capture/collection time, last verification time, and freshness/stale status. Historical jobs must not be presented as currently active without revalidation.
 
+### REQ-WORKSPACE-001 — Workspace Readback
+
+The local workspace must reconstruct the current backend state after a browser reload without relying on browser persistence. Typed read models expose Jobs with active and historical versions, source/freshness lineage, ParsedRequirements, QuickScreen and Triage history, Candidate Profile snapshots with an active pointer, and EvidenceItems with immutable version history. Profile-relative screening freshness and Triage eligibility are derived projections and never replace authoritative IDs or history.
+
+This requirement does not claim recovery after a backend process restart. Durable restart recovery requires the separately admitted SQLAlchemy/SQLite persistence slice and its concurrent-write gate.
+
 ## 7. Candidate Knowledge and Career RAG
 
 ### REQ-KNOW-001 — Candidate Knowledge

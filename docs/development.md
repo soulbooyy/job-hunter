@@ -21,7 +21,7 @@ This is a dependency order, not a calendar or daily-hours schedule:
 
 1. Repository scaffold, toolchain, CI, typed configuration, and core IDs.
 2. Domain model, versioning, lineage, Repository/UoW, and Manual Job Sources.
-3. Candidate Profile, EvidenceItem/Version, Requirement parsing, and QuickScreen.
+3. Candidate Profile, EvidenceItem/Version, Requirement parsing, QuickScreen, and Workspace readback.
 4. Evaluation datasets, fake model, baseline retrievers, and metric runners.
 5. Chroma feasibility, Hybrid Retriever, RetrievalPolicy, and ContextBuilder.
 6. RuntimeContextManager, Capability Policy, and typed LangGraph workflow.
@@ -77,6 +77,8 @@ Do not infer concurrency guarantees from a Repository/UoW shape or from atomic b
 - test at the actual coordination boundary—database transactions or constraints for multi-process support—not only with a process-local lock.
 
 The current in-memory adapter may remain single-writer and simpler than the future persistent adapter while that limitation is explicit and unsupported concurrent configurations are not enabled.
+
+Read-model tests must cover deterministic ordering, active pointers, immutable history, cross-entity lineage, empty collections, stable not-found behavior, and derived actionability. A browser-reload claim requires contract evidence that mutation results can be reconstructed from backend GET responses; it does not imply backend-restart durability.
 
 ### 5.3 LangGraph
 

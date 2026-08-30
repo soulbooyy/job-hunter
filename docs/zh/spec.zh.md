@@ -135,6 +135,12 @@ BOSS 首次采集优先获取列表数据。规则初筛输出 `PASS`、`REJECT`
 
 职位必须保存 source、captured/collected time、last verification time 和 freshness/stale 状态。历史职位未经重新验证不得伪装为当前有效的新职位。
 
+### REQ-WORKSPACE-001 — Workspace Readback
+
+本地 workspace 必须能够在浏览器刷新后从当前 backend state 重建状态，不依赖 browser persistence。Typed read model 必须暴露 Job 的 active/historical versions、source/freshness lineage、ParsedRequirements、QuickScreen/Triage history，带 active pointer 的 Candidate Profile snapshots，以及包含 immutable version history 的 EvidenceItems。Profile-relative screening freshness 与 Triage eligibility 只是派生 projection，不得替代权威 ID 或历史。
+
+本要求不声明 backend process 重启后的恢复能力。Durable restart recovery 必须由单独获准的 SQLAlchemy/SQLite persistence slice 及其 concurrent-write gate 提供。
+
 ## 7. Candidate Knowledge 与 Career RAG
 
 ### REQ-KNOW-001 — Candidate Knowledge
