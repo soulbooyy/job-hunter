@@ -11,6 +11,7 @@ from job_hunter.domain.ids import (
     JobVersionId,
     QuickScreenResultId,
     RequirementId,
+    RetrievalRunId,
     SourceReferenceId,
     SourceSnapshotId,
     TriageDecisionId,
@@ -52,3 +53,6 @@ class UuidIdGenerator:
 
     def new_triage_decision_id(self) -> TriageDecisionId:
         return TriageDecisionId(f"triage-{uuid4().hex}")
+
+    def new_retrieval_run_id(self) -> RetrievalRunId:
+        return RetrievalRunId(f"retrieval-run-{uuid4().hex}")

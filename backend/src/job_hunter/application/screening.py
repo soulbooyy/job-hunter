@@ -1,10 +1,14 @@
 """Deterministic requirement parsing, QuickScreen, and human Job Triage."""
 
-import re
 from dataclasses import dataclass
 from datetime import datetime
 
 from job_hunter.application.ports import Clock, IdGenerator, UnitOfWorkFactory
+from job_hunter.application.quick_screen_policy import (
+    QUICK_SCREEN_POLICY_VERSION,
+    recommend_quick_screen,
+)
+from job_hunter.application.requirement_parsing import DeterministicRequirementParser
 from job_hunter.domain.ids import (
     CandidateProfileId,
     CorrelationId,
@@ -16,91 +20,15 @@ from job_hunter.domain.ids import (
     TriageDecisionId,
 )
 from job_hunter.domain.jobs import JobLifecycleStatus
-from job_hunter.domain.knowledge import CandidateProfile
 from job_hunter.domain.screening import (
     JobTriageRecord,
     ParsedRequirement,
     QuickScreenRecommendation,
     QuickScreenResult,
-    RequirementPriority,
-    RequirementType,
     ScreenReasonCode,
     TriageDecision,
 )
 from job_hunter.errors import ConflictError, DependencyUnavailableError, JobHunterError
-
-_PARSER_NAME = "deterministic-line-parser"
-_PARSER_VERSION = "1"
-_POLICY_VERSION = "quick-screen-v1"
-_BULLET_PREFIX = re.compile(r"^\s*(?:[-*•]|\d+[.)])\s*")
-
-
-def _normalized(value: str) -> str:
-    return " ".join(value.split())
-
-
-def _requirement_lines(description: str) -> tuple[str, ...]:
-    lines: list[str] = []
-    seen: set[str] = set()
-    for raw_line in description.splitlines():
-        line = _normalized(_BULLET_PREFIX.sub("", raw_line))
-        key = line.casefold()
-        if line and key not in seen:
-            seen.add(key)
-            lines.append(line)
-    return tuple(lines) if lines else (_normalized(description),)
-
-
-def _priority(text: str) -> RequirementPriority:
-    normalized = text.casefold()
-    if any(token in normalized for token in ("preferred", "nice to have", "优先", "加分")):
-        return RequirementPriority.PREFERRED
-    if any(token in normalized for token in ("must", "required", "要求", "必须")):
-        return RequirementPriority.REQUIRED
-    return RequirementPriority.UNSPECIFIED
-
-
-def _requirement_type(text: str) -> RequirementType:
-    normalized = text.casefold()
-    if any(token in normalized for token in ("python", "langgraph", "llm", "skill", "技能")):
-        return RequirementType.SKILL
-    if any(token in normalized for token in ("degree", "bachelor", "master", "学历", "本科")):
-        return RequirementType.EDUCATION
-    if any(token in normalized for token in ("experience", "years", "经验", "年")):
-        return RequirementType.EXPERIENCE
-    if any(token in normalized for token in ("location", "remote", "on-site", "地点", "城市")):
-        return RequirementType.LOCATION
-    if any(token in normalized for token in ("build", "develop", "design", "负责", "开发")):
-        return RequirementType.RESPONSIBILITY
-    return RequirementType.OTHER
-
-
-def _matches_any(value: str, candidates: tuple[str, ...]) -> bool:
-    normalized = value.casefold()
-    return any(candidate.casefold() in normalized for candidate in candidates)
-
-
-def _recommend(
-    *,
-    title: str,
-    city: str,
-    requirements: tuple[ParsedRequirement, ...],
-    profile: CandidateProfile,
-) -> tuple[QuickScreenRecommendation, tuple[ScreenReasonCode, ...]]:
-    if profile.preferred_cities and not _matches_any(city, profile.preferred_cities):
-        return (
-            QuickScreenRecommendation.SCREEN_OUT,
-            (ScreenReasonCode.CITY_OUTSIDE_PREFERENCE,),
-        )
-    title_matches = _matches_any(title, profile.target_role_keywords)
-    requirement_text = " ".join(requirement.text for requirement in requirements)
-    skill_matches = _matches_any(requirement_text, profile.skill_keywords)
-    if title_matches and skill_matches:
-        return (
-            QuickScreenRecommendation.SCREEN_IN,
-            (ScreenReasonCode.TARGET_ROLE_MATCH, ScreenReasonCode.SKILL_OVERLAP),
-        )
-    return QuickScreenRecommendation.UNCERTAIN, (ScreenReasonCode.INSUFFICIENT_SIGNAL,)
 
 
 @dataclass(frozen=True, slots=True)
@@ -156,28 +84,31 @@ class RunQuickScreen:
             if not requirements:
                 # Requirement IDs are allocated only once per immutable JobVersion;
                 # reruns reuse lineage instead of fabricating equivalent identities.
+                parser = DeterministicRequirementParser()
                 requirements = tuple(
                     ParsedRequirement(
                         requirement_id=self._id_generator.new_requirement_id(),
                         job_version_id=version.version_id,
-                        source_text=line,
-                        text=line,
-                        requirement_type=_requirement_type(line),
-                        priority=_priority(line),
-                        parser_name=_PARSER_NAME,
-                        parser_version=_PARSER_VERSION,
+                        source_text=draft.source_text,
+                        text=draft.text,
+                        requirement_type=draft.requirement_type,
+                        priority=draft.priority,
+                        parser_name=parser.name,
+                        parser_version=parser.version,
                         created_at=now,
                         correlation_id=command.correlation_id,
                         run_id=command.run_id,
                     )
-                    for line in _requirement_lines(version.description)
+                    for draft in parser.parse(version.description)
                 )
                 unit_of_work.screening.add_requirements(requirements)
-            recommendation, reason_codes = _recommend(
+            recommendation, reason_codes = recommend_quick_screen(
                 title=version.title,
                 city=version.city,
-                requirements=requirements,
-                profile=profile,
+                requirement_texts=tuple(item.text for item in requirements),
+                target_role_keywords=profile.target_role_keywords,
+                skill_keywords=profile.skill_keywords,
+                preferred_cities=profile.preferred_cities,
             )
             screen_result = QuickScreenResult(
                 result_id=self._id_generator.new_quick_screen_result_id(),
@@ -187,7 +118,7 @@ class RunQuickScreen:
                 requirement_ids=tuple(item.requirement_id for item in requirements),
                 recommendation=recommendation,
                 reason_codes=reason_codes,
-                policy_version=_POLICY_VERSION,
+                policy_version=QUICK_SCREEN_POLICY_VERSION,
                 created_at=now,
                 correlation_id=command.correlation_id,
                 run_id=command.run_id,

@@ -1,0 +1,134 @@
+{
+  "manifest": {
+    "dataset_version": "smoke-v1",
+    "annotation_version": "annotation-v1",
+    "split": "synthetic",
+    "source": "synthetic fixtures",
+    "generation_method": "hand-authored",
+    "human_edits": true,
+    "smoke_fixture": true
+  },
+  "retrieval_cases": [
+    {
+      "case_id": "retrieval-python",
+      "job_id": "job-smoke-1",
+      "requirement_id": "requirement-smoke-1",
+      "requirement_text": "Python evaluation pipeline",
+      "source": "synthetic fixture",
+      "generation_method": "hand-authored",
+      "human_edits": true,
+      "allowed_sensitivities": ["public"],
+      "max_tokens": 100,
+      "top_k": 5,
+      "evidence": [
+        {
+          "evidence_id": "evidence-python",
+          "evidence_version_id": "evidence-python-v1",
+          "evidence_type": "project",
+          "canonical_content": "Built a Python evaluation pipeline",
+          "source": "manual",
+          "provenance": "synthetic human-reviewed fixture",
+          "sensitivity": "public",
+          "validity": "valid"
+        },
+        {
+          "evidence_id": "evidence-unrelated",
+          "evidence_version_id": "evidence-unrelated-v1",
+          "evidence_type": "experience",
+          "canonical_content": "Led product marketing campaigns",
+          "source": "manual",
+          "provenance": "synthetic human-reviewed fixture",
+          "sensitivity": "public",
+          "validity": "valid"
+        }
+      ],
+      "judgments": [
+        {"evidence_id": "evidence-python", "relevance": "direct"}
+      ],
+      "no_relevant_evidence": false,
+      "no_relevant_evidence_human_confirmed": false
+    },
+    {
+      "case_id": "retrieval-no-evidence",
+      "job_id": "job-smoke-1",
+      "requirement_id": "requirement-smoke-2",
+      "requirement_text": "Rust compiler development",
+      "source": "synthetic fixture",
+      "generation_method": "hand-authored",
+      "human_edits": true,
+      "allowed_sensitivities": ["public"],
+      "max_tokens": 100,
+      "top_k": 5,
+      "evidence": [
+        {
+          "evidence_id": "evidence-marketing",
+          "evidence_version_id": "evidence-marketing-v1",
+          "evidence_type": "experience",
+          "canonical_content": "Led product marketing campaigns",
+          "source": "manual",
+          "provenance": "synthetic human-reviewed fixture",
+          "sensitivity": "public",
+          "validity": "valid"
+        }
+      ],
+      "judgments": [],
+      "no_relevant_evidence": true,
+      "no_relevant_evidence_human_confirmed": true
+    }
+  ],
+  "parser_cases": [
+    {
+      "case_id": "parser-basic",
+      "source": "synthetic fixture",
+      "generation_method": "hand-authored",
+      "human_edits": true,
+      "description": "- Must have Python experience\n- Build production LLM agents\n- Bachelor's degree preferred",
+      "expected_requirements": [
+        {"text": "Must have Python experience", "priority": "required"},
+        {"text": "Build production LLM agents", "priority": "unspecified"},
+        {"text": "Bachelor's degree preferred", "priority": "preferred"}
+      ]
+    }
+  ],
+  "quick_screen_cases": [
+    {
+      "case_id": "screen-in",
+      "source": "synthetic fixture",
+      "generation_method": "hand-authored",
+      "human_edits": true,
+      "title": "Senior AI Engineer",
+      "city": "Shenzhen",
+      "requirement_texts": ["Must have Python experience"],
+      "target_role_keywords": ["AI Engineer"],
+      "skill_keywords": ["Python"],
+      "preferred_cities": ["Shenzhen"],
+      "expected_recommendation": "screen_in"
+    },
+    {
+      "case_id": "screen-out-city",
+      "source": "synthetic fixture",
+      "generation_method": "hand-authored",
+      "human_edits": true,
+      "title": "Senior AI Engineer",
+      "city": "Beijing",
+      "requirement_texts": ["Must have Python experience"],
+      "target_role_keywords": ["AI Engineer"],
+      "skill_keywords": ["Python"],
+      "preferred_cities": ["Shenzhen"],
+      "expected_recommendation": "screen_out"
+    },
+    {
+      "case_id": "screen-uncertain",
+      "source": "synthetic fixture",
+      "generation_method": "hand-authored",
+      "human_edits": true,
+      "title": "Backend Engineer",
+      "city": "Shenzhen",
+      "requirement_texts": ["Build Java services"],
+      "target_role_keywords": ["AI Engineer"],
+      "skill_keywords": ["Python"],
+      "preferred_cities": ["Shenzhen"],
+      "expected_recommendation": "uncertain"
+    }
+  ]
+}

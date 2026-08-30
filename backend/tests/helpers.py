@@ -15,6 +15,7 @@ from job_hunter.domain.ids import (
     JobVersionId,
     QuickScreenResultId,
     RequirementId,
+    RetrievalRunId,
     SourceReferenceId,
     SourceSnapshotId,
     TriageDecisionId,
@@ -73,6 +74,9 @@ class DeterministicIdGenerator:
 
     def new_triage_decision_id(self) -> TriageDecisionId:
         return TriageDecisionId(self._next("triage"))
+
+    def new_retrieval_run_id(self) -> RetrievalRunId:
+        return RetrievalRunId(self._next("retrieval-run"))
 
 
 def build_test_use_cases(

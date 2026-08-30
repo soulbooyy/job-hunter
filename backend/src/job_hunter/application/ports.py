@@ -11,12 +11,19 @@ from job_hunter.domain.ids import (
     JobVersionId,
     QuickScreenResultId,
     RequirementId,
+    RetrievalRunId,
     SourceReferenceId,
     SourceSnapshotId,
     TriageDecisionId,
 )
 from job_hunter.domain.jobs import Job, JobVersion, SourceSnapshot
 from job_hunter.domain.knowledge import CandidateProfile, EvidenceItem, EvidenceItemVersion
+from job_hunter.domain.retrieval import (
+    RetrievalQuery,
+    RetrievalRun,
+    RetrievalStrategy,
+    RetrieverResult,
+)
 from job_hunter.domain.screening import JobTriageRecord, ParsedRequirement, QuickScreenResult
 
 
@@ -44,6 +51,25 @@ class IdGenerator(Protocol):
     def new_quick_screen_result_id(self) -> QuickScreenResultId: ...
 
     def new_triage_decision_id(self) -> TriageDecisionId: ...
+
+    def new_retrieval_run_id(self) -> RetrievalRunId: ...
+
+
+class EvidenceRetriever(Protocol):
+    @property
+    def strategy(self) -> RetrievalStrategy: ...
+
+    @property
+    def version(self) -> str: ...
+
+    @property
+    def token_estimator_version(self) -> str: ...
+
+    def retrieve(
+        self,
+        query: RetrievalQuery,
+        evidence: tuple[EvidenceItemVersion, ...],
+    ) -> RetrieverResult: ...
 
 
 class JobRepository(Protocol):
@@ -108,6 +134,14 @@ class ScreeningRepository(Protocol):
     def list_triage_records(self, job_id: JobId) -> tuple[JobTriageRecord, ...]: ...
 
 
+class RetrievalRepository(Protocol):
+    def get_run(self, retrieval_run_id: RetrievalRunId) -> RetrievalRun: ...
+
+    def list_runs(self, requirement_id: RequirementId) -> tuple[RetrievalRun, ...]: ...
+
+    def add_run(self, run: RetrievalRun) -> None: ...
+
+
 class UnitOfWork(Protocol):
     @property
     def jobs(self) -> JobRepository: ...
@@ -117,6 +151,9 @@ class UnitOfWork(Protocol):
 
     @property
     def screening(self) -> ScreeningRepository: ...
+
+    @property
+    def retrieval(self) -> RetrievalRepository: ...
 
     def commit(self) -> None: ...
 

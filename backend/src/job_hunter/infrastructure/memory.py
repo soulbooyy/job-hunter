@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from job_hunter.application.ports import (
     CandidateKnowledgeRepository,
     JobRepository,
+    RetrievalRepository,
     ScreeningRepository,
     UnitOfWork,
 )
@@ -16,11 +17,13 @@ from job_hunter.domain.ids import (
     JobVersionId,
     QuickScreenResultId,
     RequirementId,
+    RetrievalRunId,
     SourceSnapshotId,
     TriageDecisionId,
 )
 from job_hunter.domain.jobs import Job, JobVersion, SourceSnapshot
 from job_hunter.domain.knowledge import CandidateProfile, EvidenceItem, EvidenceItemVersion
+from job_hunter.domain.retrieval import RetrievalRun
 from job_hunter.domain.screening import JobTriageRecord, ParsedRequirement, QuickScreenResult
 from job_hunter.errors import ConflictError, EntityNotFoundError
 
@@ -40,6 +43,8 @@ class _MemoryState:
     screen_result_ids_by_job: dict[JobId, tuple[QuickScreenResultId, ...]]
     triage_records: dict[TriageDecisionId, JobTriageRecord]
     triage_ids_by_job: dict[JobId, tuple[TriageDecisionId, ...]]
+    retrieval_runs: dict[RetrievalRunId, RetrievalRun]
+    retrieval_run_ids_by_requirement: dict[RequirementId, tuple[RetrievalRunId, ...]]
 
     def copy(self) -> "_MemoryState":
         # Frozen domain values make shallow copies sufficient. Copying every index
@@ -58,11 +63,29 @@ class _MemoryState:
             screen_result_ids_by_job=dict(self.screen_result_ids_by_job),
             triage_records=dict(self.triage_records),
             triage_ids_by_job=dict(self.triage_ids_by_job),
+            retrieval_runs=dict(self.retrieval_runs),
+            retrieval_run_ids_by_requirement=dict(self.retrieval_run_ids_by_requirement),
         )
 
 
 def _empty_state() -> _MemoryState:
-    return _MemoryState({}, {}, {}, {}, None, {}, {}, {}, {}, {}, {}, {}, {})
+    return _MemoryState(
+        jobs={},
+        job_versions={},
+        snapshots={},
+        profiles={},
+        active_profile_id=None,
+        evidence_items={},
+        evidence_versions={},
+        requirements={},
+        requirement_ids_by_version={},
+        screen_results={},
+        screen_result_ids_by_job={},
+        triage_records={},
+        triage_ids_by_job={},
+        retrieval_runs={},
+        retrieval_run_ids_by_requirement={},
+    )
 
 
 class InMemoryStore:
@@ -102,6 +125,12 @@ class InMemoryStore:
     def list_triage_records(self, job_id: JobId) -> tuple[JobTriageRecord, ...]:
         return _InMemoryScreeningRepository(self._state).list_triage_records(job_id)
 
+    def get_retrieval_run(self, retrieval_run_id: RetrievalRunId) -> RetrievalRun:
+        return _InMemoryRetrievalRepository(self._state).get_run(retrieval_run_id)
+
+    def list_retrieval_runs(self, requirement_id: RequirementId) -> tuple[RetrievalRun, ...]:
+        return _InMemoryRetrievalRepository(self._state).list_runs(requirement_id)
+
     def is_empty(self) -> bool:
         state = self._state
         return not any(
@@ -115,6 +144,7 @@ class InMemoryStore:
                 state.requirements,
                 state.screen_results,
                 state.triage_records,
+                state.retrieval_runs,
             )
         )
 
@@ -295,6 +325,31 @@ class _InMemoryScreeningRepository(ScreeningRepository):
         return tuple(self._state.triage_records[item_id] for item_id in decision_ids)
 
 
+class _InMemoryRetrievalRepository(RetrievalRepository):
+    def __init__(self, state: _MemoryState) -> None:
+        self._state = state
+
+    def get_run(self, retrieval_run_id: RetrievalRunId) -> RetrievalRun:
+        try:
+            return self._state.retrieval_runs[retrieval_run_id]
+        except KeyError:
+            raise EntityNotFoundError(f"retrieval run not found: {retrieval_run_id}") from None
+
+    def list_runs(self, requirement_id: RequirementId) -> tuple[RetrievalRun, ...]:
+        run_ids = self._state.retrieval_run_ids_by_requirement.get(requirement_id, ())
+        return tuple(self._state.retrieval_runs[run_id] for run_id in run_ids)
+
+    def add_run(self, run: RetrievalRun) -> None:
+        if run.retrieval_run_id in self._state.retrieval_runs:
+            raise ConflictError(f"retrieval run already exists: {run.retrieval_run_id}")
+        self._state.retrieval_runs[run.retrieval_run_id] = run
+        existing = self._state.retrieval_run_ids_by_requirement.get(run.requirement_id, ())
+        self._state.retrieval_run_ids_by_requirement[run.requirement_id] = (
+            *existing,
+            run.retrieval_run_id,
+        )
+
+
 class _InMemoryUnitOfWork(UnitOfWork):
     def __init__(self, store: InMemoryStore) -> None:
         self._store = store
@@ -302,6 +357,7 @@ class _InMemoryUnitOfWork(UnitOfWork):
         self._jobs = _InMemoryJobRepository(self._state)
         self._knowledge = _InMemoryCandidateKnowledgeRepository(self._state)
         self._screening = _InMemoryScreeningRepository(self._state)
+        self._retrieval = _InMemoryRetrievalRepository(self._state)
 
     @property
     def jobs(self) -> JobRepository:
@@ -314,6 +370,10 @@ class _InMemoryUnitOfWork(UnitOfWork):
     @property
     def screening(self) -> ScreeningRepository:
         return self._screening
+
+    @property
+    def retrieval(self) -> RetrievalRepository:
+        return self._retrieval
 
     def commit(self) -> None:
         # All aggregate and lineage indexes move together; this is atomic only for a

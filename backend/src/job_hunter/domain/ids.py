@@ -73,3 +73,8 @@ class QuickScreenResultId(_StableId):
 @dataclass(frozen=True, slots=True)
 class TriageDecisionId(_StableId):
     """Stable identity of one append-only human job decision."""
+
+
+@dataclass(frozen=True, slots=True)
+class RetrievalRunId(_StableId):
+    """Stable identity of one immutable Evidence retrieval run."""
