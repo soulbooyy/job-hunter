@@ -5,8 +5,8 @@ This document is the concise, rolling implementation status shared by developers
 ## Current Baseline
 
 - Branch: `main`
-- Latest stable implementation commit: current HEAD (`feat(frontend): add workspace readback and e2e coverage`)
-- Last verified: 2026-08-30 16:03 HKT
+- Latest stable implementation commit: current HEAD (`test(frontend): complete web workspace path one`)
+- Last verified: 2026-08-30 16:12 HKT
 - `./scripts/check`: passing
 
 ## Completed Slices
@@ -20,14 +20,15 @@ This document is the concise, rolling implementation status shared by developers
 | Candidate Knowledge, deterministic screening, and minimal Job Triage | Human-confirmed Profile snapshots, immutable Evidence versions, stable requirement lineage, versioned three-state QuickScreen, append-only reversible human decisions, and callable HTTP contracts | `a3286fb` |
 | Local frontend intake, screening, triage, and Evidence workspace | Runtime-validated mutation clients, session-only workflow state, Profile-relative stale warnings, append-only screening/Triage views, Manual Evidence versioning, Simplified Chinese user copy, accessible request states, and deterministic component tests | `1fbb860` |
 | Workspace read models and browser-reload readback | Resource-oriented Job, Profile, and Evidence GET contracts; immutable lineage histories; deterministic current/stale and Triage-eligibility projections; no-store responses; shared lifespan composition | `6340e36` |
-| Frontend Workspace readback adoption | Strict GET runtime contracts, browser-reload hydration, multi-Job selection, complete lineage views, backend-derived screening actionability, mutation resynchronization, and accessible retry/error states | Current commit |
-| Deterministic Workspace Playwright coverage | Mock-backed Chromium coverage for reload reconstruction, Job selection, stale-Profile Triage eligibility, historical JobVersion ineligibility, and Triage request targeting; unified local and CI check integration | Current commit |
+| Frontend Workspace readback adoption | Strict GET runtime contracts, browser-reload hydration, multi-Job selection, complete lineage views, backend-derived screening actionability, mutation resynchronization, and accessible retry/error states | `83c1e67` |
+| Deterministic Workspace Playwright coverage | Mock-backed Chromium coverage for reload reconstruction, Job selection, stale-Profile Triage eligibility, historical JobVersion ineligibility, and Triage request targeting; unified local and CI check integration | `83c1e67` |
+| Web Workspace path 1 completion | Stateful mock-backed Candidate Profile → Manual JD → QuickScreen → Human Triage browser flow, mutation/readback resynchronization, reload reconstruction, and backend-unavailable retry recovery | Current commit |
 
 ## Active Slice
 
-**Goal:** completed, locally verified, and committed deterministic Playwright coverage for Workspace reload/readback, Job selection, and backend-derived Triage actionability.
+**Goal:** Web Workspace path 1 and backend-unavailable recovery are complete, locally verified, and committed; frontend product expansion is paused pending new backend contracts.
 
-**In Scope:** a locked Playwright test dependency/runtime, mock-backed browser GET and Triage contracts, accessible-locator coverage for browser reload reconstruction, multi-Job selection, stale-Profile Triage eligibility, historical JobVersion ineligibility, and inclusion in the repository check and CI path.
+**In Scope:** stateful mock-backed mutation/readback contracts, accessible browser interactions for Candidate Profile → Manual JD → QuickScreen → Human Triage, post-mutation resynchronization and reload reconstruction, stable network-unavailable feedback, explicit retry recovery, and deterministic request-target assertions.
 
 **Out of Scope:** backend changes, live API/BOSS/LLM/database dependencies, visual snapshots, cross-browser coverage, SQLAlchemy/SQLite/Alembic, backend-restart recovery, DeepFit, RAG, resume/material workflows, and Browser Executor behavior.
 
@@ -35,11 +36,11 @@ This document is the concise, rolling implementation status shared by developers
 
 ## Verification
 
-- Final `./scripts/check`: passed with Ruff format/check, Pyright strict (0 errors), 84 backend tests, frontend format/lint/typecheck, 36 Vitest API/component test cases, 2 Playwright Chromium E2E cases, and Vite build.
+- Final `./scripts/check`: passed with Ruff format/check, Pyright strict (0 errors), 84 backend tests, frontend format/lint/typecheck, 36 Vitest API/component test cases, 4 Playwright Chromium E2E cases, and Vite build.
 - Backend unit and API contract tests: 84 passed, including 21 API contract/composition tests.
 - `git diff --check`: passed.
 - Manual localhost browser smoke: passed Profile and Manual JD creation followed by browser reload; the real in-memory API restored the Job, Profile, SourceSnapshot, and parsed Requirement state with no browser console errors.
-- Playwright Workspace subset: 2 passed against deterministic browser-level HTTP mocks, covering reload reconstruction, Job switching, stale/current/historical projections, enabled/disabled Triage controls, and the selected QuickScreenResult ID in the Triage mutation.
+- Playwright Workspace suite: 4 passed against deterministic browser-level HTTP mocks, covering full Manual JD path 1, post-mutation readback and reload, Job switching, stale/current/historical projections, enabled/disabled Triage controls, selected QuickScreenResult targeting, and safe network-unavailable retry recovery.
 - Live/remote checks not run: GitHub Actions requires a later authorized push; live BOSS, LLM, and database checks were not run. Web Workspace paths 2–5 remain unavailable because their product slices do not yet exist.
 
 ## Decisions and Deviations
@@ -63,6 +64,7 @@ This document is the concise, rolling implementation status shared by developers
 - The frontend requests all Workspace resources with `no-store`, validates each response before atomically replacing its readback view, and uses backend-projected Profile/JobVersion/result status and Triage eligibility rather than recreating those rules in React.
 - Successful mutations trigger Workspace resynchronization. A failed, malformed, or superseded read request cannot replace the last validated view; users can retry without exposing raw dependency errors.
 - Playwright is pinned in the frontend lockfile and uses its matching Chromium revision. E2E routes mock only Job Hunter HTTP contracts, use synthetic fixtures and accessible locators, run with one worker and no retry, trace, screenshot, or video retention, and are isolated from Vitest discovery.
+- Web Workspace path 1 uses a stateful fake API installed before navigation, so browser actions exercise real request mapping, runtime validation, React transitions, readback resynchronization, and reload behavior without contacting a live backend or depending on random IDs.
 - The unified repository check runs the selected Playwright suite; GitHub CI installs the locked Chromium runtime and its system dependencies before invoking the same check entry point.
 - Vite proxies `/api` and `/health` to the loopback backend by default; `VITE_API_BASE_URL` remains an explicit deployment override.
 - Frontend labels, controls, request feedback, accessibility names, and explanatory copy default to Simplified Chinese. Established product/domain names and serialized API enum values, versions, and IDs remain unchanged so localization cannot create an alternate contract truth.
@@ -74,9 +76,9 @@ This document is the concise, rolling implementation status shared by developers
 - Runtime persistence is intentionally in-memory; process restart loses imported jobs, and overlapping UoWs may silently overwrite one another. The current adapter is supported only as a single-writer development baseline until the persistence/concurrency admission gate is implemented.
 - Parser and QuickScreen behavior is a deterministic baseline only; accuracy and promotion decisions remain unmeasured until versioned datasets and metric runners exist.
 - Browser reload now restores the Workspace while the in-memory backend process remains alive; backend restart still loses all workspace data.
-- The Workspace-specific Playwright subset now passes locally. The complete Web Workspace Hard Gate remains open until paths 1–5 and required failure cases exist; remote GitHub CI execution is not observable before an authorized commit and push.
+- Web Workspace path 1 and backend-unavailable recovery now pass locally. The complete Web Workspace Hard Gate remains open until paths 2–5 and their required failure cases exist; remote GitHub CI execution is not observable before an authorized commit and push.
 - No current local blocker.
 
 ## Next Slice
 
-The next frontend slice should complete Web Workspace path 1 with browser-level Manual JD/Profile/QuickScreen/Triage mutations plus backend-unavailable recovery. Paths 2–5 remain gated on their corresponding product slices; backend evaluation foundations remain a separate track.
+Do not start another frontend product slice until the backend publishes the next frozen HTTP contracts. The likely continuation is path 3, Shortlist → Evidence Retrieval/DeepFit → material generation; paths 2–5 remain gated on their corresponding backend/product slices.
