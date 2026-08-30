@@ -45,5 +45,11 @@ export const triageResponseSchema = z
   .strict();
 
 export type QuickScreenResult = z.infer<typeof quickScreenResponseSchema>;
+export type QuickScreenViewResult = QuickScreenResult & {
+  profile_status?: "current" | "stale";
+  job_version_status?: "current" | "historical";
+  is_latest_result?: boolean;
+  triage_eligible?: boolean;
+};
 export type TriageDecision = z.infer<typeof triageDecisionSchema>;
 export type TriageResult = z.infer<typeof triageResponseSchema>;

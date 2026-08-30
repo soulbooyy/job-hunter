@@ -2,7 +2,7 @@ import { useState } from "react";
 
 import { ApiError, getErrorMessage } from "../../../api/errors";
 import type { CandidateProfile } from "../../candidate-profile/contracts";
-import type { ImportedJob } from "../../jobs/contracts";
+import type { ActiveJob } from "../../jobs/contracts";
 import {
   RequestStatus,
   type RequestStatusValue,
@@ -11,15 +11,16 @@ import type { IdFactory } from "../../../shared/id";
 import { recordTriage, runQuickScreen } from "../api";
 import type {
   QuickScreenResult,
+  QuickScreenViewResult,
   TriageDecision,
   TriageResult,
 } from "../contracts";
 import { deriveScreeningView } from "../view-model";
 
 interface ScreeningPanelProps {
-  activeJob: ImportedJob | null;
+  activeJob: ActiveJob | null;
   activeProfile: CandidateProfile | null;
-  screeningHistory: readonly QuickScreenResult[];
+  screeningHistory: readonly QuickScreenViewResult[];
   triageHistory: readonly TriageResult[];
   correlationId: string;
   idFactory: IdFactory;
@@ -189,6 +190,27 @@ export function ScreeningPanel({
               <dt>创建时间</dt>
               <dd>{currentResult.created_at}</dd>
             </div>
+            <div>
+              <dt>Profile 状态</dt>
+              <dd>{currentResult.profile_status ?? "当前会话推导"}</dd>
+            </div>
+            <div>
+              <dt>JobVersion 状态</dt>
+              <dd>{currentResult.job_version_status ?? "当前会话推导"}</dd>
+            </div>
+            <div>
+              <dt>最新结果 / 可人工筛选</dt>
+              <dd>
+                {String(currentResult.is_latest_result ?? true)} /{" "}
+                {String(currentResult.triage_eligible ?? true)}
+              </dd>
+            </div>
+            <div>
+              <dt>Correlation ID / Run ID</dt>
+              <dd className="mono-value">
+                {currentResult.correlation_id} / {currentResult.run_id}
+              </dd>
+            </div>
           </dl>
         </article>
       )}
@@ -233,31 +255,76 @@ export function ScreeningPanel({
           <ol className="history-list">
             {screeningHistory.map((result) => {
               const latest =
+                result.is_latest_result ??
                 result.quick_screen_result_id ===
-                currentResult?.quick_screen_result_id;
+                  currentResult?.quick_screen_result_id;
               const historicalVersion =
+                result.job_version_status === "historical" ||
                 result.job_version_id !== activeJob?.job_version_id;
               return (
                 <li key={result.quick_screen_result_id}>
-                  <article className="history-card">
-                    <div>
-                      <span className="mono-value">
-                        {result.quick_screen_result_id}
-                      </span>
-                      <p>推荐：{result.recommendation}</p>
-                    </div>
-                    <div className="history-tags">
-                      {latest && (
-                        <span className="state-chip state-chip--success">
-                          当前可操作
+                  <article className="history-card history-card--stacked">
+                    <div className="result-card-heading">
+                      <div>
+                        <span className="mono-value">
+                          {result.quick_screen_result_id}
                         </span>
-                      )}
-                      {historicalVersion && (
-                        <span className="state-chip state-chip--muted">
-                          历史 JobVersion
-                        </span>
-                      )}
+                        <p>推荐：{result.recommendation}</p>
+                        <p>
+                          Profile：{result.profile_status ?? "当前会话推导"} ·
+                          可人工筛选：
+                          {String(result.triage_eligible ?? latest)}
+                        </p>
+                      </div>
+                      <div className="history-tags">
+                        {latest && (
+                          <span className="state-chip state-chip--success">
+                            当前可操作
+                          </span>
+                        )}
+                        {historicalVersion && (
+                          <span className="state-chip state-chip--muted">
+                            历史 JobVersion
+                          </span>
+                        )}
+                      </div>
                     </div>
+                    <dl className="detail-grid detail-grid--compact">
+                      <div>
+                        <dt>JobVersion / CandidateProfile ID</dt>
+                        <dd className="mono-value">
+                          {result.job_version_id} /{" "}
+                          {result.candidate_profile_id}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Requirement IDs</dt>
+                        <dd>{result.requirement_ids.join(", ") || "无"}</dd>
+                      </div>
+                      <div>
+                        <dt>原因代码</dt>
+                        <dd>{result.reason_codes.join(", ")}</dd>
+                      </div>
+                      <div>
+                        <dt>策略 / 创建时间</dt>
+                        <dd>
+                          {result.policy_version} / {result.created_at}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>JobVersion 状态 / 最新结果</dt>
+                        <dd>
+                          {result.job_version_status ?? "当前会话推导"} /{" "}
+                          {String(result.is_latest_result ?? latest)}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Correlation ID / Run ID</dt>
+                        <dd className="mono-value">
+                          {result.correlation_id} / {result.run_id}
+                        </dd>
+                      </div>
+                    </dl>
                   </article>
                 </li>
               );
@@ -272,13 +339,37 @@ export function ScreeningPanel({
           <ol className="history-list">
             {triageHistory.map((result) => (
               <li key={result.triage_decision_id}>
-                <article className="history-card">
-                  <span className="mono-value">
-                    {result.triage_decision_id}
-                  </span>
-                  <p>
-                    {result.recommendation} → {result.decision}
-                  </p>
+                <article className="history-card history-card--stacked">
+                  <div className="result-card-heading">
+                    <span className="mono-value">
+                      {result.triage_decision_id}
+                    </span>
+                    <strong>
+                      {result.recommendation} → {result.decision}
+                    </strong>
+                  </div>
+                  <dl className="detail-grid detail-grid--compact">
+                    <div>
+                      <dt>Job / QuickScreenResult ID</dt>
+                      <dd className="mono-value">
+                        {result.job_id} / {result.quick_screen_result_id}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Lifecycle / 决定时间</dt>
+                      <dd>
+                        {result.lifecycle_status} / {result.decided_at}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Correlation ID</dt>
+                      <dd className="mono-value">{result.correlation_id}</dd>
+                    </div>
+                    <div>
+                      <dt>Run ID</dt>
+                      <dd className="mono-value">{result.run_id}</dd>
+                    </div>
+                  </dl>
                 </article>
               </li>
             ))}

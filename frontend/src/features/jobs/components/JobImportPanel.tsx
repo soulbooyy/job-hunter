@@ -7,10 +7,10 @@ import {
 } from "../../../shared/components/RequestStatus";
 import type { IdFactory } from "../../../shared/id";
 import { importJob } from "../api";
-import type { ImportedJob, ManualJobInput } from "../contracts";
+import type { ActiveJob, ImportedJob, ManualJobInput } from "../contracts";
 
 interface JobImportPanelProps {
-  activeJob: ImportedJob | null;
+  activeJob: ActiveJob | null;
   correlationId: string;
   idFactory: IdFactory;
   onImported: (job: ImportedJob) => void;

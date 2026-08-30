@@ -41,6 +41,71 @@ select,
   border-radius: 0.5rem;
 }
 
+.panel--workspace {
+  grid-column: 1 / -1;
+}
+
+.workspace-readback-layout {
+  display: grid;
+  grid-template-columns: minmax(230px, 0.55fr) minmax(0, 1.45fr);
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.job-navigator,
+.lineage-view {
+  min-width: 0;
+}
+
+.job-list {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.job-list-button {
+  display: grid;
+  gap: 0.24rem;
+  width: 100%;
+  padding: 0.8rem;
+  border: 1px solid #d3d8ce;
+  color: #354039;
+  background: #f7f8f3;
+  text-align: left;
+  cursor: pointer;
+}
+
+.job-list-button:hover,
+.job-list-button--active {
+  border-color: #4e8067;
+  background: #eaf1e9;
+}
+
+.job-list-button span {
+  color: #667069;
+  font-size: 0.76rem;
+}
+
+.lineage-view {
+  padding-left: 1rem;
+  border-left: 1px solid #d9ddd5;
+}
+
+.lineage-content,
+.empty-state {
+  margin: 0.8rem 0 0;
+  color: #59625c;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.detail-grid--compact {
+  margin-top: 0.75rem;
+}
+
 button:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
@@ -515,6 +580,17 @@ dd {
 @media (max-width: 900px) {
   .workspace-grid {
     grid-template-columns: 1fr;
+  }
+
+  .workspace-readback-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .lineage-view {
+    padding-top: 1rem;
+    padding-left: 0;
+    border-top: 1px solid #d9ddd5;
+    border-left: 0;
   }
 
   .app-header {

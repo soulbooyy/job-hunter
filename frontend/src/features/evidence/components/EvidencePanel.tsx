@@ -1,4 +1,4 @@
-import { useState, type SyntheticEvent } from "react";
+import { useEffect, useState, type SyntheticEvent } from "react";
 
 import { getErrorMessage } from "../../../api/errors";
 import {
@@ -47,7 +47,17 @@ export function EvidencePanel({
   idFactory,
   onSaved,
 }: EvidencePanelProps) {
-  const activeEvidence = history.at(-1) ?? null;
+  const [selectedEvidenceId, setSelectedEvidenceId] = useState("");
+  const evidenceIds = Array.from(
+    new Set(history.map((item) => item.evidence_id)),
+  );
+  const selectedHistory = history.filter(
+    (item) => item.evidence_id === selectedEvidenceId,
+  );
+  const activeEvidence =
+    selectedHistory.find(
+      (item) => item.evidence_version_id === item.active_version_id,
+    ) ?? null;
   const [evidenceType, setEvidenceType] = useState<EvidenceType>("project");
   const [canonicalContent, setCanonicalContent] = useState("");
   const [occurredOn, setOccurredOn] = useState("");
@@ -59,6 +69,12 @@ export function EvidencePanel({
   const [createVersion, setCreateVersion] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [status, setStatus] = useState<RequestStatusValue | null>(null);
+
+  useEffect(() => {
+    if (evidenceIds.length > 0 && !evidenceIds.includes(selectedEvidenceId)) {
+      setSelectedEvidenceId(evidenceIds[0] ?? "");
+    }
+  }, [evidenceIds, selectedEvidenceId]);
 
   async function handleSubmit(
     event: SyntheticEvent<HTMLFormElement, SubmitEvent>,
@@ -85,6 +101,7 @@ export function EvidencePanel({
         runId: idFactory(),
       });
       onSaved(result);
+      setSelectedEvidenceId(result.evidence_id);
       setStatus({ tone: "success", message: "Evidence 版本已保存。" });
     } catch (error: unknown) {
       setStatus({ tone: "error", message: getErrorMessage(error) });
@@ -109,6 +126,25 @@ export function EvidencePanel({
       </p>
 
       <form onSubmit={(event) => void handleSubmit(event)}>
+        {evidenceIds.length > 0 && (
+          <label>
+            当前 Evidence
+            <select
+              aria-label="当前 Evidence"
+              value={selectedEvidenceId}
+              onChange={(event) => {
+                setSelectedEvidenceId(event.target.value);
+                setCreateVersion(false);
+              }}
+            >
+              {evidenceIds.map((evidenceId) => (
+                <option key={evidenceId} value={evidenceId}>
+                  {evidenceId}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <div className="form-grid">
           <label>
             Evidence 类型
@@ -243,8 +279,7 @@ export function EvidencePanel({
                       <strong>Evidence 版本 {item.version_number}</strong>
                       <p className="mono-value">{item.evidence_version_id}</p>
                     </div>
-                    {activeEvidence?.active_version_id ===
-                      item.evidence_version_id && (
+                    {item.active_version_id === item.evidence_version_id && (
                       <span className="state-chip state-chip--success">
                         当前活跃版本
                       </span>
@@ -264,9 +299,33 @@ export function EvidencePanel({
                       <dd>{item.provenance}</dd>
                     </div>
                     <div>
+                      <dt>规范内容</dt>
+                      <dd>{item.canonical_content}</dd>
+                    </div>
+                    <div>
+                      <dt>类型 / 发生日期</dt>
+                      <dd>
+                        {item.evidence_type} · {item.occurred_on ?? "未填写"}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>来源</dt>
+                      <dd>{item.source}</dd>
+                    </div>
+                    <div>
                       <dt>状态</dt>
                       <dd>
                         {item.sensitivity} · {item.validity}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Correlation ID</dt>
+                      <dd className="mono-value">{item.correlation_id}</dd>
+                    </div>
+                    <div>
+                      <dt>Run ID / 创建时间</dt>
+                      <dd className="mono-value">
+                        {item.run_id} / {item.created_at}
                       </dd>
                     </div>
                   </dl>

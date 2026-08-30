@@ -105,7 +105,7 @@ async function importJob(user: ReturnType<typeof userEvent.setup>) {
 
 function renderWorkspace(fetchMock: ReturnType<typeof vi.fn>) {
   vi.stubGlobal("fetch", fetchMock);
-  render(<App idFactory={createIdFactory()} />);
+  render(<App idFactory={createIdFactory()} enableWorkspaceQueries={false} />);
 }
 
 function readJsonRequestBody(call: unknown): unknown {
@@ -154,16 +154,19 @@ describe("Job Hunter workspace", () => {
     const user = userEvent.setup();
 
     await saveProfile(user);
-    expect(await screen.findByText("profile-1")).toBeVisible();
+    expect(await screen.findAllByText("profile-1")).not.toHaveLength(0);
     await importJob(user);
     expect(await screen.findByText("manual_jd")).toBeVisible();
     expect(screen.getByText("fresh")).toBeVisible();
     expect(screen.getByText("版本 1")).toBeVisible();
 
     await user.click(screen.getByRole("button", { name: "运行 QuickScreen" }));
-    expect(await screen.findByText("screen_in")).toBeVisible();
-    expect(screen.getByText("quick-screen-v1")).toBeVisible();
-    expect(screen.getByText("requirement-1, requirement-2")).toBeVisible();
+    const currentScreen = await screen.findByLabelText("当前 QuickScreen 结果");
+    expect(within(currentScreen).getByText("screen_in")).toBeVisible();
+    expect(within(currentScreen).getByText("quick-screen-v1")).toBeVisible();
+    expect(
+      within(currentScreen).getByText("requirement-1, requirement-2"),
+    ).toBeVisible();
     expect(
       screen.getByText(/不是 DeepFit，也不使用 Evidence 或 RAG/i),
     ).toBeVisible();

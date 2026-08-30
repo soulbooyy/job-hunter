@@ -41,5 +41,9 @@ jobs:
       - name: Install locked dependencies
         run: ./scripts/setup
 
+      - name: Install locked Playwright browser
+        working-directory: frontend
+        run: npm run test:e2e:install -- --with-deps
+
       - name: Run deterministic checks
         run: ./scripts/check

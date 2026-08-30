@@ -11,6 +11,7 @@ import type { CandidateProfile } from "../contracts";
 
 interface CandidateProfilePanelProps {
   activeProfile: CandidateProfile | null;
+  history: readonly CandidateProfile[];
   correlationId: string;
   idFactory: IdFactory;
   onSaved: (profile: CandidateProfile) => void;
@@ -25,6 +26,7 @@ function parseKeywords(value: string): string[] {
 
 export function CandidateProfilePanel({
   activeProfile,
+  history,
   correlationId,
   idFactory,
   onSaved,
@@ -147,6 +149,60 @@ export function CandidateProfilePanel({
             </div>
           </dl>
         </article>
+      )}
+
+      {history.length > 0 && (
+        <section className="history-block" aria-label="Profile 快照历史">
+          <h3>Profile 快照历史</h3>
+          <ol className="history-list">
+            {history.map((profile) => (
+              <li key={profile.profile_id}>
+                <article className="history-card history-card--stacked">
+                  <div className="result-card-heading">
+                    <span className="mono-value">{profile.profile_id}</span>
+                    <span
+                      className={`state-chip ${
+                        profile.profile_id === activeProfile?.profile_id
+                          ? "state-chip--success"
+                          : "state-chip--muted"
+                      }`}
+                    >
+                      {profile.profile_id === activeProfile?.profile_id
+                        ? "current"
+                        : "historical"}
+                    </span>
+                  </div>
+                  <dl className="detail-grid detail-grid--compact">
+                    <div>
+                      <dt>目标职位</dt>
+                      <dd>{profile.target_role_keywords.join(", ")}</dd>
+                    </div>
+                    <div>
+                      <dt>技能</dt>
+                      <dd>{profile.skill_keywords.join(", ")}</dd>
+                    </div>
+                    <div>
+                      <dt>偏好城市</dt>
+                      <dd>{profile.preferred_cities.join(", ") || "无偏好"}</dd>
+                    </div>
+                    <div>
+                      <dt>创建时间</dt>
+                      <dd>{profile.created_at}</dd>
+                    </div>
+                    <div>
+                      <dt>Correlation ID</dt>
+                      <dd className="mono-value">{profile.correlation_id}</dd>
+                    </div>
+                    <div>
+                      <dt>Run ID</dt>
+                      <dd className="mono-value">{profile.run_id}</dd>
+                    </div>
+                  </dl>
+                </article>
+              </li>
+            ))}
+          </ol>
+        </section>
       )}
     </section>
   );

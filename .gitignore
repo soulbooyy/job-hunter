@@ -22,6 +22,8 @@ node_modules/
 .vite/
 .eslintcache
 frontend/dist/
+frontend/playwright-report/
+frontend/test-results/
 
 # Local tool caches
 .cache/
