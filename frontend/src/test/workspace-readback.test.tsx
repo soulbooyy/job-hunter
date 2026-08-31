@@ -234,7 +234,14 @@ describe("Workspace GET readback", () => {
     render(<App idFactory={() => "test-id"} />);
 
     expect(await screen.findByText("工作区已从后端恢复。")).toBeVisible();
+    expect(screen.getByLabelText("本地数据边界")).toHaveTextContent(
+      /后端进程重启后.*本地 SQLite 数据库重新读取/u,
+    );
+    expect(screen.getByLabelText("本地数据边界")).not.toHaveTextContent(
+      "后端进程重启后无法恢复",
+    );
     const workspace = screen.getByRole("region", { name: "后端工作区" });
+    expect(within(workspace).getByText(/本地 SQLite 持久化/u)).toBeVisible();
     expect(
       within(workspace).getByRole("button", {
         name: "Senior AI Engineer，Example AI",

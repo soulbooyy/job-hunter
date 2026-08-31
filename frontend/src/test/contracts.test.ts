@@ -165,6 +165,41 @@ describe("stable API failures", () => {
     expect(String(failure)).not.toContain("secret network detail");
   });
 
+  it("maps a stale optimistic write without treating it as malformed JSON", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            error: {
+              code: "stale_write",
+              message: "Authoritative state changed",
+            },
+          }),
+          {
+            status: 409,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+      ),
+    );
+
+    const failure = await requestJson(
+      "/api/example",
+      {},
+      importJobResponseSchema,
+    ).catch((error: unknown) => error);
+
+    expect(failure).toMatchObject({
+      name: "ApiError",
+      code: "stale_write",
+      status: 409,
+    });
+    expect(getErrorMessage(failure)).toBe(
+      "数据已被其他操作更新，请重新同步后重试。",
+    );
+  });
+
   it("rejects malformed successful JSON at the runtime boundary", async () => {
     vi.stubGlobal(
       "fetch",

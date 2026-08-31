@@ -222,9 +222,9 @@ export function App({
       <aside className="session-notice" aria-label="本地数据边界">
         <strong>私密的本地工作区。</strong>
         <span>
-          页面刷新会从本地 API 重新读取 Profile、Job 和
-          Evidence；内容不会写入浏览器存储、日志或
-          URL。当前后端仍是内存实现，后端进程重启后无法恢复。
+          页面刷新或后端进程重启后，会从本地 SQLite 数据库重新读取 Profile、Job
+          和 Evidence；内容不会写入浏览器存储、日志或
+          URL。数据仅保存在当前设备，不提供跨设备同步或自动备份。
         </span>
       </aside>
 

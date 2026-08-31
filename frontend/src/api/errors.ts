@@ -4,6 +4,7 @@ export const backendErrorCodeSchema = z.enum([
   "input_validation",
   "not_found",
   "conflict",
+  "stale_write",
   "dependency_unavailable",
 ]);
 
@@ -44,6 +45,8 @@ export function getErrorMessage(error: unknown): string {
         return "未找到所需数据。";
       case "conflict":
         return "当前状态已发生变化，请刷新相关结果后重试。";
+      case "stale_write":
+        return "数据已被其他操作更新，请重新同步后重试。";
       case "dependency_unavailable":
         return "后端依赖暂不可用。";
       case "backend_unavailable":

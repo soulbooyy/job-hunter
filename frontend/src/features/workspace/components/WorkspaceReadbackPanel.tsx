@@ -41,7 +41,8 @@ export function WorkspaceReadbackPanel({
       </div>
       <p className="panel-intro">
         页面加载时从本地 API 重建 Job、Profile 和 Evidence
-        视图。浏览器不保存这些内容；后端进程重启仍会清空当前内存数据。
+        视图。浏览器不保存这些内容；本地 SQLite
+        持久化支持后端进程重启后的工作区恢复。
       </p>
       <RequestStatus value={status} />
 
