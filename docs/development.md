@@ -23,12 +23,13 @@ This is a dependency order, not a calendar or daily-hours schedule:
 2. Domain model, versioning, lineage, Repository/UoW, and Manual Job Sources.
 3. Candidate Profile, EvidenceItem/Version, Requirement parsing, QuickScreen, and Workspace readback.
 4. Evaluation datasets, fake model, baseline retrievers, and metric runners.
-5. Chroma feasibility, Hybrid Retriever, RetrievalPolicy, and ContextBuilder.
-6. RuntimeContextManager, Capability Policy, and typed LangGraph workflow.
-7. DeepFit, ResumeClaim, validation/repair, and MaterialApproval.
-8. Structured Resume Editor, Template A, PDF/PNG, and critical E2E flows.
-9. Boss Collector adapter and its independent Stretch Release Gate.
-10. Browser Executor feasibility only after every core Hard Gate is stable.
+5. SQLAlchemy/SQLite persistence, Alembic migrations, restart durability, and concurrent-write admission.
+6. Chroma feasibility, Hybrid Retriever, RetrievalPolicy, and ContextBuilder.
+7. RuntimeContextManager, Capability Policy, and typed LangGraph workflow.
+8. DeepFit, ResumeClaim, validation/repair, and MaterialApproval.
+9. Structured Resume Editor, Template A, PDF/PNG, and critical E2E flows.
+10. Boss Collector adapter and its independent Stretch Release Gate.
+11. Browser Executor feasibility only after every core Hard Gate is stable.
 
 ## 4. Scope-cut Order and Stop Rules
 
@@ -75,8 +76,13 @@ Do not infer concurrency guarantees from a Repository/UoW shape or from atomic b
 - verify that the successful state retains complete immutable history and authoritative lineage after the conflict;
 - once an in-memory fake substitutes for the admitted adapter in concurrency-sensitive tests, run the same observable contract against both;
 - test at the actual coordination boundary—database transactions or constraints for multi-process support—not only with a process-local lock.
+- use two real connections to prove that a read UnitOfWork retains one snapshot after another connection commits; a framework Session flag alone is not evidence of SQLite transaction state;
 
 The current in-memory adapter may remain single-writer and simpler than the future persistent adapter while that limitation is explicit and unsupported concurrent configurations are not enabled.
+
+Every UnitOfWork is one-shot and must be explicitly closed in a `finally` path after commit, rollback, or a successful read. Persistence tests use temporary database files and real independent connections; they never reuse or delete the developer's configured database.
+
+Synchronous SQLAlchemy use cases must be invoked by synchronous FastAPI handlers or an explicit worker-thread boundary. Do not execute blocking database work directly in an async route.
 
 Read-model tests must cover deterministic ordering, active pointers, immutable history, cross-entity lineage, empty collections, stable not-found behavior, and derived actionability. A browser-reload claim requires contract evidence that mutation results can be reconstructed from backend GET responses; it does not imply backend-restart durability.
 
@@ -206,6 +212,8 @@ The repository root must provide stable wrapper commands. Their underlying imple
 
 ```text
 ./scripts/setup          install locked backend/frontend dependencies
+./scripts/db-upgrade     upgrade the configured local SQLite schema
+./scripts/db-check       verify Alembic head and metadata against a temporary database
 ./scripts/dev            start local FastAPI and Vite
 ./scripts/check          run all deterministic checks
 ./scripts/eval-replay    run reproducible replay evaluation

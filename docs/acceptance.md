@@ -76,8 +76,19 @@ This Hard Gate becomes applicable before a persistent Repository/UoW adapter or 
 - In a deterministic scenario, two UoWs read the same entity version before either commits.
 - The first valid commit succeeds; the stale commit cannot silently overwrite it and returns the stable conflict/stale-version error contract.
 - The successful state, immutable version history, active-version pointer, and authoritative lineage remain mutually consistent after the rejected commit.
+- Concurrent re-screen and Triage races are exercised in both commit orders. Exactly one operation succeeds from a shared Job revision; the loser returns `stale_write`, leaves no child row, and cannot separate the latest QuickScreen pointer from its Triage decision.
 - The gate runs against the admitted persistence adapter at its real coordination boundary. A process-local-only lock is insufficient evidence for a multi-process claim.
 - An adapter that does not pass this gate remains limited to an explicitly single-writer development or test configuration.
+
+### AC-PERSIST-002 — Restart Durability and Migration
+
+- An empty temporary SQLite database upgrades to the current Alembic head without `create_all()` and repeated upgrades are stable.
+- After one application lifespan writes the complete current Workspace path and disposes its engine, a new lifespan using the same database reconstructs the same active pointers, immutable histories, derived read models, and authoritative lineage.
+- Two real connections prove that repeated reads inside one UnitOfWork do not observe a commit made after that UnitOfWork's first SELECT.
+- A failed transaction leaves no partial Snapshot, Version, Requirement, Triage, Evidence, or RetrievalRun rows.
+- Database/driver exceptions and invalid persisted state cross the adapter boundary only through the stable Job Hunter error taxonomy without SQL text, parameters, or local paths.
+- Composite relational constraints and hydration tests reject wrong Job/JobVersion/Requirement, Triage/QuickScreen/Job, RetrievalRun/Requirement/JobVersion, and EvidenceItem/EvidenceVersion ownership even when serialized payload IDs and association rows are tampered together.
+- The repository check creates a temporary database, upgrades it to the Alembic-derived unique head, and reports no metadata drift without reading or modifying the developer database.
 
 ### AC-SCREEN-001 — Screening and Triage
 
@@ -354,6 +365,7 @@ Collect a real manual Time-to-Application baseline only after entering real usag
 | REQ-JOB-001 / REQ-JOB-002 / REQ-JOB-005 / REQ-JOB-006 | AC-JOB-001, Web Workspace path 1, source/freshness contract tests |
 | REQ-JOB-003 / REQ-JOB-004 | BossSource Stretch Release Gate, adapter and three-way screening tests |
 | REQ-WORKSPACE-001 | AC-WORKSPACE-001, backend read-model contracts, browser-reload tests |
+| REQ-PERSIST-001 | AC-PERSIST-001/002, migration/restart/repository contract tests |
 | REQ-EVAL-001 | AC-DATA-001/002, AC-EVAL-001, reproducible replay reports |
 | REQ-KNOW-001 / REQ-KNOW-002 | Dataset Gates, AC-RAG-003, AC-TRACE-001/002 |
 | REQ-RAG-001 / REQ-RAG-002 | AC-RAG-001/002, fallback and policy-version tests |

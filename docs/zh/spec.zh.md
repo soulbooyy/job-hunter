@@ -141,6 +141,10 @@ BOSS 首次采集优先获取列表数据。规则初筛输出 `PASS`、`REJECT`
 
 本要求不声明 backend process 重启后的恢复能力。Durable restart recovery 必须由单独获准的 SQLAlchemy/SQLite persistence slice 及其 concurrent-write gate 提供。
 
+### REQ-PERSIST-001 — Durable Local Persistence
+
+默认本地 backend 必须将当前完整 authoritative Workspace graph 保存到经过 migration 管理的 SQLite database，使其能够在 process restart 后重建。Persistence 必须保留 immutable history、active pointer、准确 cross-entity lineage、correlation/run ID 与 deterministic ordering。Persistent adapter 在 stale writer 能够显式失败且不会覆盖成功并发提交之前，不得进入默认路径。
+
 ## 7. Candidate Knowledge 与 Career RAG
 
 ### REQ-KNOW-001 — Candidate Knowledge

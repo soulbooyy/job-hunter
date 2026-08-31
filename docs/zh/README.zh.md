@@ -41,6 +41,6 @@ BOSS 单岗位投递与结果回读属于 Stretch Goal。即使实现完成，�
 
 ## 当前状态
 
-本地 Manual Job → QuickScreen → Human Triage workspace 与 backend readback 路径已经建立。后端现已包含 versioned evaluation contract、deterministic Evidence retrieval baseline、authoritative RetrievalRun lineage 和 offline replay metrics；滚动状态以英文 `../progress.md` 为准，该文档按项目规则不提供中文副本。
+本地 Manual Job → QuickScreen → Human Triage workspace 与 backend readback 路径已经建立。默认 backend 现在使用显式 migration 管理的 SQLAlchemy/SQLite store，提供跨重启 Workspace state 与 stale-writer rejection。后端同时包含 versioned evaluation contract、deterministic Evidence retrieval baseline、authoritative RetrievalRun lineage 和 offline replay metrics；滚动状态以英文 `../progress.md` 为准，该文档按项目规则不提供中文副本。
 
-仓库完整验证使用 `./scripts/check`，deterministic seed evaluation 使用 `./scripts/eval-replay`。Seed evaluation 仅验证机制，不表示最小 curated Dataset Gate 已通过。
+`./scripts/setup` 安装 locked dependency 并升级本地 database；`./scripts/db-upgrade` 只执行 database migration。Application startup 校验当前 Alembic head，并有意不自动迁移。仓库完整验证使用 `./scripts/check`，deterministic seed evaluation 使用 `./scripts/eval-replay`。Seed evaluation 仅验证机制，不表示最小 curated Dataset Gate 已通过。

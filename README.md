@@ -50,6 +50,6 @@ The English documents are authoritative for Codex, automation, implementation, a
 
 ## Status
 
-The local Manual Job → QuickScreen → Human Triage workspace and backend readback path are established. The backend now includes versioned evaluation contracts, deterministic Evidence retrieval baselines, authoritative RetrievalRun lineage, and offline replay metrics. See [Current implementation progress](docs/progress.md) for the rolling baseline, verification state, risks, and next slice.
+The local Manual Job → QuickScreen → Human Triage workspace and backend readback path are established. The default backend now uses an explicitly migrated SQLAlchemy/SQLite store for restart-durable Workspace state and stale-writer rejection. It also includes versioned evaluation contracts, deterministic Evidence retrieval baselines, authoritative RetrievalRun lineage, and offline replay metrics. See [Current implementation progress](docs/progress.md) for the rolling baseline, verification state, risks, and next slice.
 
-Repository verification uses `./scripts/check`; deterministic seed evaluation uses `./scripts/eval-replay`. The seed evaluation is a mechanics smoke test and does not claim that the minimum curated Dataset Gate has passed.
+`./scripts/setup` installs locked dependencies and upgrades the local database; `./scripts/db-upgrade` applies only the database migration. Application startup validates the current Alembic head and intentionally does not auto-migrate. Repository verification uses `./scripts/check`; deterministic seed evaluation uses `./scripts/eval-replay`. The seed evaluation is a mechanics smoke test and does not claim that the minimum curated Dataset Gate has passed.

@@ -76,8 +76,19 @@ Synthetic Edge Cases
 - 在 deterministic scenario 中，两个 UoW 必须在任一方提交前读取同一个 entity version。
 - 第一个有效 commit 成功；stale commit 不得静默覆盖，并返回稳定的 conflict/stale-version error contract。
 - rejected commit 发生后，成功状态、immutable version history、active-version pointer 与权威 lineage 必须保持相互一致。
+- Concurrent re-screen 与 Triage race 必须覆盖两种 commit order。基于同一 Job revision 时只能一个 operation 成功；loser 返回 `stale_write`、不留下 child row，也不能使 latest QuickScreen pointer 与 Triage decision 分离。
 - 必须在获准持久化 adapter 的真实 coordination boundary 上运行该 gate。仅有进程内锁不足以证明多进程能力。
 - 未通过该 gate 的 adapter 只能用于明确标注为 single-writer 的开发或测试配置。
+
+### AC-PERSIST-002 — Restart Durability and Migration
+
+- 空的临时 SQLite database 必须在不使用 `create_all()` 的情况下升级到当前 Alembic head，重复升级保持稳定。
+- 一个 application lifespan 写入当前完整 Workspace path 并 dispose engine 后，使用同一 database 的新 lifespan 必须重建相同 active pointer、immutable history、derived read model 与 authoritative lineage。
+- 两条真实 connection 必须证明：同一 UnitOfWork 在第一次 SELECT 后的重复 read 不会观察到另一 connection 的中途 commit。
+- 失败 transaction 不得留下部分 Snapshot、Version、Requirement、Triage、Evidence 或 RetrievalRun row。
+- Database/driver exception 与非法 persisted state 只能通过稳定 Job Hunter error taxonomy 跨越 adapter boundary，不得暴露 SQL text、parameter 或本地路径。
+- 即使 serialized payload ID 与 association row 被同时篡改，composite relational constraint 与 hydration test 也必须拒绝错误的 Job/JobVersion/Requirement、Triage/QuickScreen/Job、RetrievalRun/Requirement/JobVersion，以及 EvidenceItem/EvidenceVersion ownership。
+- Repository check 必须创建临时 database、升级到由 Alembic 推导的唯一 head，并在不读取或修改开发者 database 的前提下报告 metadata drift。
 
 ### AC-SCREEN-001 — Screening and Triage
 
@@ -354,6 +365,7 @@ Fit 与 Material Workflow 必须拥有可配置、版本化、可观察且由 ru
 | REQ-JOB-001 / REQ-JOB-002 / REQ-JOB-005 / REQ-JOB-006 | AC-JOB-001、Web Workspace path 1、source/freshness contract tests |
 | REQ-JOB-003 / REQ-JOB-004 | BossSource Stretch Release Gate、adapter/three-way screening tests |
 | REQ-WORKSPACE-001 | AC-WORKSPACE-001、backend read-model contracts、browser-reload tests |
+| REQ-PERSIST-001 | AC-PERSIST-001/002、migration/restart/repository contract tests |
 | REQ-EVAL-001 | AC-DATA-001/002、AC-EVAL-001、reproducible replay reports |
 | REQ-KNOW-001 / REQ-KNOW-002 | Dataset Gate、AC-RAG-003、AC-TRACE-001/002 |
 | REQ-RAG-001 / REQ-RAG-002 | AC-RAG-001/002、fallback and policy-version tests |

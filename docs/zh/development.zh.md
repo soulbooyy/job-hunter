@@ -23,12 +23,13 @@
 2. Domain model、versioning、lineage、Repository/UoW 与 Manual Job Sources。
 3. Candidate Profile、EvidenceItem/Version、Requirement parsing、QuickScreen 与 Workspace readback。
 4. Evaluation datasets、fake model、baseline retrievers 与 metric runners。
-5. Chroma feasibility、Hybrid Retriever、RetrievalPolicy 与 ContextBuilder。
-6. RuntimeContextManager、Capability Policy 与 LangGraph typed workflow。
-7. DeepFit、ResumeClaim、validation/repair 与 MaterialApproval。
-8. Structured Resume Editor、Template A、PDF/PNG 和关键 E2E。
-9. Boss Collector adapter 与独立 Stretch Release Gate。
-10. Browser Executor feasibility 仅在核心 Hard Gates 全部稳定后开始。
+5. SQLAlchemy/SQLite persistence、Alembic migration、restart durability 与 concurrent-write admission。
+6. Chroma feasibility、Hybrid Retriever、RetrievalPolicy 与 ContextBuilder。
+7. RuntimeContextManager、Capability Policy 与 LangGraph typed workflow。
+8. DeepFit、ResumeClaim、validation/repair 与 MaterialApproval。
+9. Structured Resume Editor、Template A、PDF/PNG 和关键 E2E。
+10. Boss Collector adapter 与独立 Stretch Release Gate。
+11. Browser Executor feasibility 仅在核心 Hard Gates 全部稳定后开始。
 
 ## 4. Scope-cut 顺序与停止规则
 
@@ -75,8 +76,13 @@ Feasibility 结果无法证明安全、契约稳定或基本可用时，停止�
 - 验证冲突发生后，成功提交的状态仍保留完整 immutable history 和权威 lineage；
 - 一旦内存 fake 在 concurrency-sensitive test 中替代已获准的 adapter，必须对两者运行相同的 observable contract；
 - 必须在真实 coordination boundary 上测试，例如数据库事务或约束；仅测试进程内锁不能证明多进程支持。
+- 使用两条真实 connection 证明 read UnitOfWork 在另一 connection commit 后仍保留同一 snapshot；framework Session flag 本身不能证明 SQLite transaction state；
 
 只要限制被明确记录且未启用不受支持的并发配置，当前内存 adapter 可以继续保持 single-writer，并比未来持久化 adapter 更简单。
+
+每个 UnitOfWork 都是 one-shot；commit、rollback 或成功 read 后都必须在 `finally` path 显式 close。Persistence test 使用临时 database file 与真实独立 connection，不复用或删除开发者配置的 database。
+
+同步 SQLAlchemy use case 必须由同步 FastAPI handler 或显式 worker-thread boundary 调用。不得在 async route 中直接执行 blocking database work。
 
 Read-model test 必须覆盖 deterministic ordering、active pointer、immutable history、cross-entity lineage、empty collection、稳定 not-found behavior 与派生 actionability。浏览器刷新恢复声明必须有 contract evidence 证明 mutation result 可由 backend GET response 重建；该声明不代表 backend restart durability。
 
@@ -204,6 +210,8 @@ Fake model、domain、contract、workflow、repository、rendering invariants、
 
 ```text
 ./scripts/setup          install locked backend/frontend dependencies
+./scripts/db-upgrade     upgrade the configured local SQLite schema
+./scripts/db-check       verify Alembic head and metadata against a temporary database
 ./scripts/dev            start local FastAPI and Vite
 ./scripts/check          all deterministic checks
 ./scripts/eval-replay    reproducible replay evaluation

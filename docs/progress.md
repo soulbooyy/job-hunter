@@ -5,8 +5,8 @@ This document is the concise, rolling implementation status shared by developers
 ## Current Baseline
 
 - Branch: `main`
-- Latest stable implementation commit: `e78ebea` (`feat: add deterministic retrieval evaluation foundations`)
-- Last verified: 2026-08-30 21:13 HKT
+- Latest stable implementation commit: `e9e2630` (`feat: add durable SQLite workspace persistence`)
+- Last verified: 2026-08-31 11:48 HKT
 - `./scripts/check`: passing
 
 ## Completed Slices
@@ -24,31 +24,41 @@ This document is the concise, rolling implementation status shared by developers
 | Deterministic Workspace Playwright coverage | Mock-backed Chromium coverage for reload reconstruction, Job selection, stale-Profile Triage eligibility, historical JobVersion ineligibility, and Triage request targeting; unified local and CI check integration | `83c1e67` |
 | Web Workspace path 1 completion | Stateful mock-backed Candidate Profile → Manual JD → QuickScreen → Human Triage browser flow, mutation/readback resynchronization, reload reconstruction, and backend-unavailable retry recovery | `11fa7ea` |
 | Evaluation foundations and deterministic retrieval baselines | Runtime-validated smoke dataset and rubric, shared Evidence eligibility, Full Context/Lexical-Metadata retrievers, immutable RetrievalRun lineage, exact retrieval/parser/QuickScreen metrics, structured replay validation, and offline replay entry point | `e78ebea` |
+| Frontend persistence-boundary synchronization | SQLite restart-recovery copy, explicit local-only/no-backup boundary, and stable `stale_write` conflict mapping with runtime-contract tests | `45a76e1` |
+| Durable SQLite Workspace persistence | Alembic-managed SQLAlchemy/SQLite graph, restart durability, consistent UoW snapshots, optimistic concurrency, authoritative latest-screen coordination, normalized lineage ownership, metadata-drift verification, and persistent default lifespan composition | `e9e2630` |
 
 ## Active Slice
 
-**Goal:** no development slice is active; the reviewed evaluation-foundation and deterministic retrieval-baseline implementation is the stable backend baseline.
+**Goal:** close the documentation for the committed SQLAlchemy/SQLite persistence baseline; no additional implementation slice is active.
 
-**In Scope:** none until the next slice is explicitly authorized.
+**In Scope:** record the verified `e9e2630` baseline, its persistence and concurrency decisions, and the recommended next slice.
 
-**Out of Scope:** minimum curated Dataset Gate completion, frontend or HTTP changes, SQLite/SQLAlchemy/Alembic, Chroma/embedding/Hybrid retrieval, automatic RetrievalPolicy routing, ContextBuilder, DeepFit, LangGraph, prompt tuning, live LLM/BOSS/browser dependencies, and material generation.
+**Out of Scope:** further code changes, frontend features, new HTTP resources, PostgreSQL or speculative remote adapters, FTS5 search, Chroma/embedding/Hybrid retrieval, automatic RetrievalPolicy routing, ContextBuilder, DeepFit, LangGraph, database encryption/backup/sync, auth, live LLM/BOSS/browser dependencies, and material generation.
 
-**Traceability:** REQ-EVAL-001, REQ-KNOW-002, REQ-RAG-001, REQ-RAG-004, AC-DATA-001/002, AC-EVAL-001, AC-RAG-003, parser quality targets, and the lineage, runtime-validation, strict-typing, error-boundary, and privacy Hard Gates.
+**Traceability:** REQ-PERSIST-001, REQ-WORKSPACE-001, AC-PERSIST-001/002, and the transaction, lineage, runtime-validation, strict-typing, error-boundary, and privacy Hard Gates.
 
 ## Verification
 
-- Final `./scripts/check`: passed with Ruff format/check, Pyright strict (0 errors), 118 backend tests, frontend format/lint/typecheck, 36 Vitest API/component test cases, 4 Playwright Chromium E2E cases, and Vite build.
-- Backend unit and API contract tests: 118 passed, including 21 API contract/composition tests and 34 retrieval/evaluation tests.
+- Final `./scripts/check`: passed with Ruff format/check, Pyright strict (0 errors), 136 backend tests, frontend format/lint/typecheck, 36 Vitest API/component test cases, 4 Playwright Chromium E2E cases, and Vite build.
+- Backend unit, API contract, and persistence integration tests: 136 passed, including 22 API contract/composition tests, 15 real-SQLite integration tests, and 34 retrieval/evaluation tests.
+- SQLite verification covers idempotent Alembic upgrade, Alembic-derived head and metadata-drift checks, startup schema-head refusal, complete Workspace and RetrievalRun restart recovery, a real two-connection read snapshot, independent-Session stale writes for Job/Profile/Evidence roots, both concurrent re-screen/Triage commit orders, normalized lineage ownership and corruption rejection, losing-lineage rollback, transaction atomicity, write-order preservation, and invalid-payload error redaction.
 - `./scripts/eval-replay`: passed offline against `smoke-v1`; the report records all dataset/parser/retriever/policy versions, contains no Evidence content, and explicitly reports that AC-DATA-001 is not satisfied.
 - `git diff --check`: passed.
-- Manual localhost browser smoke: passed Profile and Manual JD creation followed by browser reload; the real in-memory API restored the Job, Profile, SourceSnapshot, and parsed Requirement state with no browser console errors.
+- The prior localhost browser smoke covered Profile and Manual JD browser reload. A new manual browser smoke was not required because HTTP contracts are unchanged; persistent restart behavior is exercised against the real SQLite adapter in backend integration tests.
 - Playwright Workspace suite: 4 passed against deterministic browser-level HTTP mocks, covering full Manual JD path 1, post-mutation readback and reload, Job switching, stale/current/historical projections, enabled/disabled Triage controls, selected QuickScreenResult targeting, and safe network-unavailable retry recovery.
-- Live/remote checks not run: GitHub Actions requires a later authorized push; live BOSS, LLM, and database checks were not run. Web Workspace paths 2–5 remain unavailable because their product slices do not yet exist.
+- Live/remote checks not run: GitHub Actions requires a later authorized push; live BOSS and LLM checks were not run. Web Workspace paths 2–5 remain unavailable because their product slices do not yet exist.
 
 ## Decisions and Deviations
 
 - Review-critical domain invariants, boundary translations, transaction/failure semantics, and deliberate scope limits now carry concise intent comments. This is a reviewability standard, not an architecture deviation.
 - Concurrent-write admission is now frozen in Architecture, Development, and Acceptance: it becomes mandatory before persistent storage or overlapping mutation enters the default runtime, and requires deterministic stale-writer rejection without lineage loss.
+- The default lifespan now validates the configured Alembic head, owns one synchronous SQLAlchemy engine/session factory, and builds the complete application graph on short-lived SQL UnitOfWork instances. Setup and `./scripts/db-upgrade` apply migrations explicitly; application startup never creates or migrates schema.
+- SQLite transaction control now emits an explicit `BEGIN` before read and write operations so a UnitOfWork observes one committed snapshot. FastAPI routes that invoke the synchronous application graph are synchronous handlers and therefore run blocking SQLAlchemy work in framework-managed worker threads.
+- Job, EvidenceItem, and Candidate Profile active-pointer state use infrastructure-only optimistic revisions. Independent stale writers return `stale_write`; the losing transaction cannot retain immutable child rows or alter the winning active pointer and lineage.
+- Job owns the authoritative latest-QuickScreen pointer. Re-screen advances it under the same optimistic revision as Triage, a new JobVersion clears it, and read projections no longer infer actionability from append order.
+- Persisted immutable values use runtime-validated JSON payloads paired with normalized identity, ownership, lineage, active-pointer, revision, and write-order columns. Hydration cross-validates both representations and reports invalid state only through a redacted dependency-unavailable error.
+- QuickScreen requirements and RetrievalRun hit/exclusion Evidence lineage use ordered relational association rows with composite ownership constraints. Repository hydration also cross-checks the complete Job/JobVersion/Requirement, Triage/QuickScreen/Job, RetrievalRun/Requirement/JobVersion, and EvidenceItem/EvidenceVersion chains.
+- `./scripts/db-check` upgrades a temporary database to the unique head derived from the Alembic migration graph and runs `alembic check`; it never reads or modifies the configured developer database.
 - FastAPI lifespan builds one internally shared default `ApplicationUseCases` graph or accepts one complete explicit bundle. Per-use-case partial overrides are intentionally unsupported because mixing an override with defaults could split related use cases across different stores. The bundle members are exposed individually through typed `app.state` providers and removed on shutdown.
 - Standard lifespan-aware tests use Starlette's current `httpx2` TestClient backend; no manual startup hooks or global mutable overrides are used.
 - Direct `Job` construction now enforces aggregate-local history, active-version, and source-reference consistency; factories retain cross-object validation responsibilities.
@@ -62,13 +72,14 @@ This document is the concise, rolling implementation status shared by developers
 - `full-context-v1` returns the exact eligible set or `NOT_EXECUTABLE` without truncation; Application and Domain both enforce its strategy semantics. `lexical-metadata-v1` uses exact phrase, normalized tokens, metadata signals, top-k, stable ID tie-breaking, and a deterministic ranked-prefix token budget. RetrievalRun records eligible and selected token estimates separately; ContextBuilder retains responsibility for the later final-package budget.
 - Parser reports expose per-priority precision, recall, F1, support, raw confusion counts, and Macro-F1. Production QuickScreen and evaluation reports use one shared policy-version constant.
 - `smoke-v1` is a hand-authored synthetic mechanics fixture, not a quality dataset. Its perfect parser/QuickScreen numbers and baseline retrieval differences support no product-quality claim; the AC-DATA-001 curated corpus remains outstanding.
-- The expanded InMemoryStore commits Job, Candidate Knowledge, Requirement, screening, and Triage indexes together but remains explicitly single-writer with no concurrency-isolation claim.
+- InMemoryStore remains a deterministic single-writer test adapter with no concurrency-isolation claim; it is no longer the default application runtime.
 - Frontend JSON remains `unknown` until a strict endpoint-specific Zod schema accepts it; malformed success/error bodies and network exceptions become stable `ApiError` values without exposing raw data.
 - The SPA stores only validated mutation responses in React memory. It writes no Profile, JD, Evidence, or URL data to browser storage, logs, or navigation state; one Job workflow keeps a stable correlation ID and every mutation receives a fresh injected run ID.
 - Profile-relative stale status and current JobVersion/actionability are derived read projections. A stale-Profile result remains triageable, while a result for a historical JobVersion remains visible but cannot be used as the current action target.
 - Workspace readback uses four resource-oriented GET contracts rather than a catch-all dump. Each query reads one UoW snapshot, preserves authoritative IDs and histories, deterministically orders collections, and emits `Cache-Control: no-store`; derived status fields are never persisted.
 - The frontend requests all Workspace resources with `no-store`, validates each response before atomically replacing its readback view, and uses backend-projected Profile/JobVersion/result status and Triage eligibility rather than recreating those rules in React.
 - Successful mutations trigger Workspace resynchronization. A failed, malformed, or superseded read request cannot replace the last validated view; users can retry without exposing raw dependency errors.
+- Frontend persistence copy now reflects restart recovery from the default local SQLite database while explicitly avoiding cross-device-sync or automatic-backup claims. The stable `stale_write` 409 code is runtime-validated and directs users to resynchronize before retrying.
 - Playwright is pinned in the frontend lockfile and uses its matching Chromium revision. E2E routes mock only Job Hunter HTTP contracts, use synthetic fixtures and accessible locators, run with one worker and no retry, trace, screenshot, or video retention, and are isolated from Vitest discovery.
 - Web Workspace path 1 uses a stateful fake API installed before navigation, so browser actions exercise real request mapping, runtime validation, React transitions, readback resynchronization, and reload behavior without contacting a live backend or depending on random IDs.
 - The unified repository check runs the selected Playwright suite; GitHub CI installs the locked Chromium runtime and its system dependencies before invoking the same check entry point.
@@ -79,12 +90,13 @@ This document is the concise, rolling implementation status shared by developers
 ## Risks and Blockers
 
 - Remote GitHub Actions cannot be observed until the committed baseline is pushed; pushing is intentionally not authorized in this slice.
-- Runtime persistence is intentionally in-memory; process restart loses imported jobs, and overlapping UoWs may silently overwrite one another. The current adapter is supported only as a single-writer development baseline until the persistence/concurrency admission gate is implemented.
+- The local SQLite database contains private Candidate and Job content and currently has no application-level encryption, backup, recovery, or sync workflow. It remains a local file excluded by Git patterns and must not be copied or committed casually.
+- Startup intentionally fails when the configured database is not at the current Alembic head; developers must run `./scripts/setup` or `./scripts/db-upgrade` after pulling schema changes.
 - Parser, QuickScreen, and baseline retrieval now have reproducible metric runners, but only synthetic smoke cases exist. Quality and promotion decisions remain unmeasured until the curated Development and Frozen Holdout minimums are independently annotated.
-- Browser reload now restores the Workspace while the in-memory backend process remains alive; backend restart still loses all workspace data.
+- Browser reload and backend restart now restore the currently implemented Workspace graph from SQLite; cross-device sync and disaster recovery remain out of scope.
 - Web Workspace path 1 and backend-unavailable recovery now pass locally. The complete Web Workspace Hard Gate remains open until paths 2–5 and their required failure cases exist; remote GitHub CI execution is not observable before an authorized commit and push.
 - No current local blocker.
 
 ## Next Slice
 
-After review and explicit commit authorization, the recommended next backend slice is SQLAlchemy/SQLite/Alembic persistence with the already required stale-writer/concurrent-write admission contract. Only after that durable authoritative baseline should the project run the bounded Chroma feasibility spike and implement Hybrid Retrieval, RetrievalPolicy, and ContextBuilder. No new frontend product slice should start until those backend HTTP contracts are frozen.
+The recommended next backend slice is a bounded Chroma feasibility spike followed—only if admitted and explicitly authorized—by Hybrid Retrieval, RetrievalPolicy, and ContextBuilder. The spike must prove local persistence, metadata filtering, update/delete, rebuild, packaging, and benchmark behavior before Chroma enters the production path.

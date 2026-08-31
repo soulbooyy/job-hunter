@@ -101,6 +101,8 @@ Infrastructure Adapters
 
 FastAPI route 只负责 request validation、local request context、调用 use case、response mapping 和错误映射。它不得直接写 SQL、查询 Chroma、调用 LLM、运行 scraper 或操作浏览器。
 
+调用同步 SQLAlchemy application graph 的 route 使用同步 FastAPI handler，使 blocking database I/O 由 framework-managed worker thread 而非 event loop 执行。Async handler 只保留给真正的 async boundary。
+
 Workspace readback 使用 resource-oriented GET contract，分别读取 Job collection、单个完整 Job read model、Candidate Profile snapshots 与 Evidence histories。Job read model 包含版本/source/Requirement lineage 以及 QuickScreen/Triage history；API 不直接暴露 Domain object，也不提供 catch-all `/workspace` dump。包含 Candidate Knowledge 或 Job content 的响应必须设置 `Cache-Control: no-store`。
 
 ### 5.2 Application
@@ -109,7 +111,7 @@ Use Case 表达一次完整业务意图，例如 `ImportJob`、`RunQuickScreen`�
 
 获取 UnitOfWork 本身属于 Application failure boundary。未知的 factory 或 port 异常必须转换为稳定的 Job Hunter error；只有成功获取 UnitOfWork 后才允许尝试 rollback。
 
-`WorkspaceQueries` 从一个 UnitOfWork snapshot 构造每个 read model，deterministic 地排序 immutable history，并依据权威 active pointer 派生 `current/stale`、latest-result 与 Triage-eligibility 字段。这些字段仅是 projection，不得写回 Domain State。
+`WorkspaceQueries` 从一个 UnitOfWork snapshot 构造每个 read model。SQLite adapter 在第一次 SELECT 前显式开始 database transaction，使同一 UnitOfWork 的所有 repository read 观察同一个 committed snapshot。它 deterministic 地排序 immutable history，并依据权威 active pointer 派生 `current/stale` 与 Triage-eligibility 字段。这些字段仅是 projection，不得写回 Domain State。
 
 ### 5.3 Domain
 
@@ -458,6 +460,14 @@ MVP 只实现 LocalBrowserExecutor；不创建 RemoteExecutor 或 OfficialAPIExe
 
 持久化通过 Repository + Unit of Work 进入 SQLAlchemy/SQLite。不得承诺 SQLite 到 PostgreSQL 零成本切换，也不预实现 PostgreSQL adapter。
 
+默认本地 adapter 使用一个由 lifespan 管理的同步 SQLAlchemy engine/session factory，并为每个 UnitOfWork 创建一个短生命周期 Session。SQLite driver transaction control 被禁用，SQLAlchemy 为 read/write 显式发送 deferred `BEGIN`；这既保留 concurrent reader，也使第一次 SELECT 建立 UnitOfWork snapshot。Application use case 继续拥有 transaction boundary，且每个 UnitOfWork（包括成功的 read-only operation）都必须显式 close。Alembic 是唯一 schema creation path：setup 或显式 database-upgrade command 执行 migration；application startup 只校验 schema head，不得静默调用 `create_all()` 或自动迁移。
+
+Mutable logical root（`Job`、`EvidenceItem` 和 Candidate Profile active-pointer state）使用 infrastructure-owned optimistic revision。`Job` 同时拥有 authoritative latest-QuickScreen pointer：每次 re-screen 都改变该 pointer，新 JobVersion 清空它，Triage 保留它。SQL Repository 在 hydrate/read root 时捕获 expected revision，并在 flush/commit 使用 database compare-and-swap update，因此基于同一 Job revision 的 concurrent re-screen 与 Triage 不可能同时提交。Revision metadata 不进入 Domain model 或 HTTP contract。Immutable version 与 lineage row 保持 append-only，并随失败 transaction 一起 rollback。
+
+初始 adapter 将经过 runtime validation 的 immutable value payload 以 JSON text 保存，同时使用 normalized relational column 表达 identity、ownership、lineage、deterministic write order、active pointer 与 revision。Hydration 必须交叉验证所有重复 identity/ownership field；mismatch 或非法 payload 均 fail closed。这些 payload 只是内部 persistence representation，不是另一套 Domain 或 API contract；Domain shape 变化时，除 schema change 外还必须提供 Alembic data migration。
+
+QuickScreen-to-Requirement 与 RetrievalRun-to-Evidence lineage 使用 normalized ordered association row 保存，而不是只存在 serialized payload 中。Composite ownership constraint 与 hydration check 强制 Job → JobVersion → Requirement、Triage → QuickScreen → Job、RetrievalRun → Requirement → JobVersion，以及 EvidenceItem → EvidenceItemVersion relationship。Payload 与 association row 必须描述同一 lineage；不一致时 fail closed。
+
 影响生成、审批或执行的实体采用版本化；snapshot 型记录一旦创建即 immutable。Logical entity 只维护 active-version pointer。用户隐私删除可以真正删除敏感原文或文件，但保留不含敏感内容的 entity/version ID、删除时间、原因和必要 hash tombstone。
 
 ### 15.1 并发写入边界
@@ -471,6 +481,8 @@ MVP 只实现 LocalBrowserExecutor；不创建 RemoteExecutor 或 OfficialAPIExe
 - 多 API worker，或任何可能发生写入重叠的其他配置。
 
 获准进入默认路径的设计必须防止 silent lost update。基于版本化状态的 mutation 必须携带明确的 expected revision 或 expected active-version identifier；stale writer 必须按稳定的 conflict/stale-version taxonomy 失败，同时保持已提交版本历史和权威 lineage 完整。持久化切片可以根据 SQLite 选择数据库约束、optimistic revision check、compare-and-swap 或 serialization，但必须先冻结可观察的事务与冲突语义，再选择实现机制。仅有进程内锁不能证明具备多进程保证。
+
+获准 SQLite adapter 使用 foreign-key enforcement、WAL mode、bounded busy timeout 与 SQLAlchemy optimistic version check。Compare-and-swap 失败或 stale SQLite snapshot 转换为稳定 `stale_write` conflict；其他 database availability failure 保持 dependency-unavailable。Boundary error 与 SQL log 不得包含 SQL statement、parameter、Candidate content 或本地 database path。
 
 ## 16. Traceability 与 Observability
 

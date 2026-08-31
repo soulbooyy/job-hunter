@@ -143,6 +143,10 @@ The local workspace must reconstruct the current backend state after a browser r
 
 This requirement does not claim recovery after a backend process restart. Durable restart recovery requires the separately admitted SQLAlchemy/SQLite persistence slice and its concurrent-write gate.
 
+### REQ-PERSIST-001 — Durable Local Persistence
+
+The default local backend must store the complete currently authoritative Workspace graph in a migrated SQLite database so it can be reconstructed after process restart. Persistence must retain immutable histories, active pointers, exact cross-entity lineage, correlation/run IDs, and deterministic ordering. A persistent adapter cannot enter the default path until stale writers fail explicitly without overwriting a successful concurrent commit.
+
 ## 7. Candidate Knowledge and Career RAG
 
 ### REQ-KNOW-001 — Candidate Knowledge

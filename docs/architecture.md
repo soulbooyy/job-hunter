@@ -101,6 +101,8 @@ Infrastructure Adapters
 
 FastAPI routes handle request validation, local request context, use-case invocation, response mapping, and error mapping. They do not write SQL or call Chroma, LLMs, scrapers, or browsers directly.
 
+Routes that invoke the synchronous SQLAlchemy application graph are synchronous FastAPI handlers so framework-managed worker threads, not the event loop, perform blocking database I/O. Async handlers remain reserved for genuinely async boundaries.
+
 Workspace readback uses resource-oriented GET contracts for the Job collection, one complete Job read model, Candidate Profile snapshots, and Evidence histories. The Job read model contains its version/source/Requirement lineage plus QuickScreen and Triage history; the API does not expose Domain objects or introduce a catch-all `/workspace` dump. Responses containing Candidate Knowledge or Job content use `Cache-Control: no-store`.
 
 ### 5.2 Application
@@ -109,7 +111,7 @@ Use Cases represent complete business intents such as `ImportJob`, `RunQuickScre
 
 Acquiring a UnitOfWork is part of the Application failure boundary. Unknown factory or port exceptions are translated into stable Job Hunter errors, and rollback is attempted only after a UnitOfWork was successfully acquired.
 
-`WorkspaceQueries` constructs each read model from one UnitOfWork snapshot. It deterministically orders immutable histories and derives `current/stale`, latest-result, and Triage-eligibility fields from authoritative active pointers. These fields are projections only and are never written back into Domain State.
+`WorkspaceQueries` constructs each read model from one UnitOfWork snapshot. The SQLite adapter explicitly begins a database transaction before the first SELECT so every repository read in that UnitOfWork observes one committed snapshot. It deterministically orders immutable histories and derives `current/stale` and Triage-eligibility fields from authoritative active pointers. These fields are projections only and are never written back into Domain State.
 
 ### 5.3 Domain
 
@@ -460,6 +462,14 @@ MVP implements only LocalBrowserExecutor and creates no RemoteExecutor or Offici
 
 Persistence flows through Repository + Unit of Work into SQLAlchemy/SQLite. The architecture does not promise a zero-cost SQLite-to-PostgreSQL switch and does not pre-implement PostgreSQL adapters.
 
+The default local adapter uses one lifespan-owned synchronous SQLAlchemy engine/session factory and one short-lived Session per UnitOfWork. SQLite driver transaction control is disabled and SQLAlchemy emits an explicit deferred `BEGIN` for both reads and writes; this preserves concurrent readers while making the first SELECT establish the UnitOfWork snapshot. Application use cases continue to own transaction boundaries and must explicitly close every UnitOfWork, including successful read-only operations. Alembic is the only schema-creation path: setup or an explicit database-upgrade command applies migrations, while application startup validates the schema head and never silently calls `create_all()` or auto-migrates.
+
+Mutable logical roots (`Job`, `EvidenceItem`, and the Candidate Profile active-pointer state) carry infrastructure-owned optimistic revisions. `Job` also owns the authoritative latest-QuickScreen pointer: every re-screen changes that pointer, while a new JobVersion clears it and Triage preserves it. The SQL Repository captures the expected revision when hydrating or reading the root and uses a database compare-and-swap update at flush/commit. Concurrent re-screen and Triage operations therefore cannot both commit from the same Job revision. Revision metadata does not enter Domain models or HTTP contracts. Immutable version and lineage rows remain append-only and are rolled back with the losing transaction.
+
+The initial adapter stores runtime-validated immutable value payloads as JSON text alongside normalized relational columns for identity, ownership, lineage, deterministic write order, active pointers, and revisions. Hydration cross-validates every duplicated identity/ownership field and fails closed on mismatch or invalid payloads. These payloads are an internal persistence representation, not an alternate Domain or API contract; a Domain shape change requires an Alembic data migration as well as schema changes.
+
+QuickScreen-to-Requirement and RetrievalRun-to-Evidence lineage is stored in normalized ordered association rows, not only inside serialized payloads. Composite ownership constraints and hydration checks enforce Job → JobVersion → Requirement, Triage → QuickScreen → Job, RetrievalRun → Requirement → JobVersion, and EvidenceItem → EvidenceItemVersion relationships. Payload and association rows must describe the same lineage; a mismatch fails closed.
+
 Entities that affect generation, approval, or execution are versioned. Snapshot records are immutable after creation. Logical entities hold only an active-version pointer. Privacy deletion may physically remove sensitive content while retaining only non-sensitive entity/version IDs, deletion time, reason, and necessary hash tombstones.
 
 ### 15.1 Concurrent Write Boundary
@@ -473,6 +483,8 @@ Concurrent-write design becomes mandatory before any of the following enters the
 - multiple API workers or any other configuration in which writes can overlap.
 
 The admitted design must prevent silent lost updates. A mutation based on versioned state carries an explicit expected revision or expected active-version identifier; a stale writer fails with the stable conflict/stale-version taxonomy, while committed version history and authoritative lineage remain intact. The persistence slice may choose database constraints, optimistic revision checks, compare-and-swap, or serialization appropriate to SQLite, but must freeze observable transaction and conflict semantics before choosing the mechanism. Process-local locking alone cannot establish a multi-process guarantee.
+
+The admitted SQLite adapter uses foreign-key enforcement, WAL mode, a bounded busy timeout, and SQLAlchemy optimistic version checks. A failed compare-and-swap or stale SQLite snapshot becomes the stable `stale_write` conflict; unrelated database availability failures remain dependency-unavailable errors. SQL statements, parameters, Candidate content, and local database paths are never included in boundary errors or enabled SQL logs.
 
 ## 16. Traceability and Observability
 
