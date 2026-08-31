@@ -6,7 +6,7 @@ This document is the concise, rolling implementation status shared by developers
 
 - Branch: `main`
 - Latest stable implementation commit: `e9e2630` (`feat: add durable SQLite workspace persistence`)
-- Last verified: 2026-08-31 11:48 HKT
+- Last verified: 2026-08-31 17:15 HKT
 - `./scripts/check`: passing
 
 ## Completed Slices
@@ -26,23 +26,23 @@ This document is the concise, rolling implementation status shared by developers
 | Evaluation foundations and deterministic retrieval baselines | Runtime-validated smoke dataset and rubric, shared Evidence eligibility, Full Context/Lexical-Metadata retrievers, immutable RetrievalRun lineage, exact retrieval/parser/QuickScreen metrics, structured replay validation, and offline replay entry point | `e78ebea` |
 | Frontend persistence-boundary synchronization | SQLite restart-recovery copy, explicit local-only/no-backup boundary, and stable `stale_write` conflict mapping with runtime-contract tests | `45a76e1` |
 | Durable SQLite Workspace persistence | Alembic-managed SQLAlchemy/SQLite graph, restart durability, consistent UoW snapshots, optimistic concurrency, authoritative latest-screen coordination, normalized lineage ownership, metadata-drift verification, and persistent default lifespan composition | `e9e2630` |
+| Spike 5.5 — Bounded Chroma feasibility | Opt-in locked Chroma harness, process reopen, Evidence metadata filtering and mutation, exact SQLite rebuild, privacy-safe failures, synthetic benchmark, and constrained admission report | `b631f90` |
 
 ## Active Slice
 
-**Goal:** close the documentation for the committed SQLAlchemy/SQLite persistence baseline; no additional implementation slice is active.
+**None — Spike 5.5 is complete.**
 
-**In Scope:** record the verified `e9e2630` baseline, its persistence and concurrency decisions, and the recommended next slice.
+Formal Slice 6 has not started. It remains one undivided vertical slice and requires separate explicit authorization.
 
-**Out of Scope:** further code changes, frontend features, new HTTP resources, PostgreSQL or speculative remote adapters, FTS5 search, Chroma/embedding/Hybrid retrieval, automatic RetrievalPolicy routing, ContextBuilder, DeepFit, LangGraph, database encryption/backup/sync, auth, live LLM/BOSS/browser dependencies, and material generation.
-
-**Traceability:** REQ-PERSIST-001, REQ-WORKSPACE-001, AC-PERSIST-001/002, and the transaction, lineage, runtime-validation, strict-typing, error-boundary, and privacy Hard Gates.
+Spike 5.5 concluded `admitted_with_constraints`; `docs/feasibility/chroma-v1.md` records the bounded evidence and limitations. Chroma remains outside the production path and default dependency set.
 
 ## Verification
 
-- Final `./scripts/check`: passed with Ruff format/check, Pyright strict (0 errors), 136 backend tests, frontend format/lint/typecheck, 36 Vitest API/component test cases, 4 Playwright Chromium E2E cases, and Vite build.
+- Final `./scripts/check`: passed with Ruff format/check, Pyright strict (0 errors), 136 backend tests, frontend format/lint/typecheck, 37 Vitest API/component test cases, 4 Playwright Chromium E2E cases, and Vite build.
 - Backend unit, API contract, and persistence integration tests: 136 passed, including 22 API contract/composition tests, 15 real-SQLite integration tests, and 34 retrieval/evaluation tests.
 - SQLite verification covers idempotent Alembic upgrade, Alembic-derived head and metadata-drift checks, startup schema-head refusal, complete Workspace and RetrievalRun restart recovery, a real two-connection read snapshot, independent-Session stale writes for Job/Profile/Evidence roots, both concurrent re-screen/Triage commit orders, normalized lineage ownership and corruption rejection, losing-lineage rollback, transaction atomicity, write-order preservation, and invalid-payload error redaction.
 - `./scripts/eval-replay`: passed offline against `smoke-v1`; the report records all dataset/parser/retriever/policy versions, contains no Evidence content, and explicitly reports that AC-DATA-001 is not satisfied.
+- `./scripts/chroma-spike`: passed in an isolated locked environment with Ruff format/check, Spike Pyright strict (0 errors), 10 Spike contracts, and the 256-record deterministic benchmark. The report records 1,280.525 ms cold indexing, 1.624 ms query p95, 49.348 ms process reopen plus first query, 87.415 ms reconcile, and 49.625 ms full rebuild on Darwin arm64/Python 3.12.13; all frozen ceilings passed.
 - `git diff --check`: passed.
 - The prior localhost browser smoke covered Profile and Manual JD browser reload. A new manual browser smoke was not required because HTTP contracts are unchanged; persistent restart behavior is exercised against the real SQLite adapter in backend integration tests.
 - Playwright Workspace suite: 4 passed against deterministic browser-level HTTP mocks, covering full Manual JD path 1, post-mutation readback and reload, Job switching, stale/current/historical projections, enabled/disabled Triage controls, selected QuickScreenResult targeting, and safe network-unavailable retry recovery.
@@ -86,6 +86,9 @@ This document is the concise, rolling implementation status shared by developers
 - Vite proxies `/api` and `/health` to the loopback backend by default; `VITE_API_BASE_URL` remains an explicit deployment override.
 - Frontend labels, controls, request feedback, accessibility names, and explanatory copy default to Simplified Chinese. Established product/domain names and serialized API enum values, versions, and IDs remain unchanged so localization cannot create an alternate contract truth.
 - No implementation-stage architecture deviation is currently recorded.
+- Spike 5.5 admits Chroma only with constraints as a future rebuildable derivative index. The exact `chromadb==1.5.9` pin remains in a non-default uv group; production modules do not import it, SQLite remains authoritative, and no runtime/API/Domain/Application/migration behavior changed.
+- The spike uses explicit offline deterministic vectors and stores no Candidate content in Chroma documents or reports. Collection manifest and record lineage are runtime-validated; third-party failures, incompatibility, and rebuild mismatches fail closed with redacted errors.
+- The admission is constrained by 64 newly locked packages, a 55,379,332-byte Chroma distribution, upstream guidance limiting embedded `PersistentClient`, one tested platform, and no real semantic-quality evidence. It does not satisfy AC-DATA-001 or AC-RAG-001/002 and proves only the current validity/sensitivity eligibility subset of REQ-RAG-004.
 
 ## Risks and Blockers
 
@@ -95,8 +98,9 @@ This document is the concise, rolling implementation status shared by developers
 - Parser, QuickScreen, and baseline retrieval now have reproducible metric runners, but only synthetic smoke cases exist. Quality and promotion decisions remain unmeasured until the curated Development and Frozen Holdout minimums are independently annotated.
 - Browser reload and backend restart now restore the currently implemented Workspace graph from SQLite; cross-device sync and disaster recovery remain out of scope.
 - Web Workspace path 1 and backend-unavailable recovery now pass locally. The complete Web Workspace Hard Gate remains open until paths 2–5 and their required failure cases exist; remote GitHub CI execution is not observable before an authorized commit and push.
+- Chroma packaging and runtime behavior are unverified on Linux, Windows, and Intel macOS. Real embedding selection, semantic retrieval quality, Candidate scope/permission/redaction eligibility, production lifecycle, rebuild/fallback operation, and release packaging remain open for formal Slice 6.
 - No current local blocker.
 
 ## Next Slice
 
-The recommended next backend slice is a bounded Chroma feasibility spike followed—only if admitted and explicitly authorized—by Hybrid Retrieval, RetrievalPolicy, and ContextBuilder. The spike must prove local persistence, metadata filtering, update/delete, rebuild, packaging, and benchmark behavior before Chroma enters the production path.
+The recommended next backend slice is formal Slice 6, kept as one undivided vertical slice: production rebuildable semantic indexing, HybridRetriever and application-level fusion, versioned automatic RetrievalPolicy, immutable RetrievalRun policy lineage and deterministic fallback, then ContextBuilder and immutable ContextPackage. It may start only with explicit authorization; Chroma must remain experimental unless curated evaluation satisfies the applicable AC-RAG promotion thresholds.
