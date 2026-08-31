@@ -13,6 +13,9 @@ dependencies = [
 ]
 
 [dependency-groups]
+chroma-spike = [
+    "chromadb==1.5.9",
+]
 dev = [
     "httpx2>=2.0.0",
     "pyright>=1.1.411",

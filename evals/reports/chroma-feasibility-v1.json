@@ -1,0 +1,53 @@
+{
+  "schema_version": "chroma-feasibility-benchmark-v1",
+  "manifest": {
+    "schema_version": "chroma-feasibility-v1",
+    "embedding_provider": "job-hunter-synthetic",
+    "embedding_model": "deterministic-hash-v1",
+    "embedding_dimension": 64,
+    "chunk_policy_version": "whole-evidence-spike-v1",
+    "index_version": "chroma-index-spike-v1",
+    "distance_metric": "cosine"
+  },
+  "workload": {
+    "record_count": 256,
+    "query_count": 50,
+    "replacement_count": 32,
+    "deletion_count": 32,
+    "embedding_dimension": 64
+  },
+  "thresholds": {
+    "cold_index_ms": 15000.0,
+    "query_p95_ms": 250.0,
+    "reopen_first_query_ms": 3000.0,
+    "reconcile_ms": 5000.0,
+    "full_rebuild_ms": 15000.0
+  },
+  "timings": {
+    "cold_index_ms": 1280.525,
+    "query_p95_ms": 1.624,
+    "reopen_first_query_ms": 49.348,
+    "reconcile_ms": 87.415,
+    "full_rebuild_ms": 49.625
+  },
+  "correctness": {
+    "identity_metadata_match": true,
+    "process_reopen_succeeded": true,
+    "documents_absent": true,
+    "hidden_network_used": false
+  },
+  "runtime": {
+    "chromadb_version": "1.5.9",
+    "python_version": "3.12.13",
+    "platform_system": "Darwin",
+    "platform_machine": "arm64",
+    "chromadb_distribution_bytes": 55379332
+  },
+  "admission": "admitted_with_constraints",
+  "constraints": [
+    "Chroma remains an opt-in derivative index; SQLite remains authoritative.",
+    "The benchmark uses deterministic synthetic vectors, not semantic embeddings.",
+    "The locked Chroma distribution has a materially larger transitive package surface.",
+    "The embedded PersistentClient path is admitted only for this local-first scope."
+  ]
+}

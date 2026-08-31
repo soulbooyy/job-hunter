@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+spike_run=(uv run --isolated --locked --group chroma-spike)
+
+cd "${repository_root}/backend"
+"${spike_run[@]}" ruff format --check spikes spike_tests/chroma_feasibility
+"${spike_run[@]}" ruff check spikes spike_tests/chroma_feasibility
+"${spike_run[@]}" pyright --project spikes/chroma_feasibility/pyrightconfig.json
+"${spike_run[@]}" python -m pytest spike_tests/chroma_feasibility
+"${spike_run[@]}" python -m spikes.chroma_feasibility.runner \
+  --output "${repository_root}/evals/reports/chroma-feasibility-v1.json"
