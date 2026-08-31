@@ -4,8 +4,4 @@ set -euo pipefail
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 cd "${repository_root}/backend"
-uv sync --locked
 uv run --locked --no-sync python -m job_hunter.infrastructure.persistence.migrate
-
-cd "${repository_root}/frontend"
-npm ci

@@ -10,7 +10,13 @@ from job_hunter.application.candidate_knowledge import CreateCandidateProfile, S
 from job_hunter.application.import_job import ImportJob
 from job_hunter.application.screening import RecordJobTriage, RunQuickScreen
 from job_hunter.application.workspace_queries import WorkspaceQueries
-from job_hunter.infrastructure.memory import InMemoryStore, InMemoryUnitOfWorkFactory
+from job_hunter.config import RuntimeSettings
+from job_hunter.infrastructure.persistence.database import (
+    DatabaseRuntime,
+    create_database_runtime,
+    require_current_schema,
+)
+from job_hunter.infrastructure.persistence.uow import SqlAlchemyUnitOfWorkFactory
 from job_hunter.infrastructure.runtime import SystemClock, UuidIdGenerator
 from job_hunter.ingestion.manual import JobSourceRegistry, ManualJDSource, ManualURLSource
 
@@ -29,11 +35,10 @@ class ApplicationUseCases:
     workspace_queries: WorkspaceQueries
 
 
-def _build_default_use_cases() -> ApplicationUseCases:
-    # One store/UoW graph makes Job checkpoints and their Candidate Knowledge,
-    # requirement, screening, and triage lineage visible in the same transaction.
-    store = InMemoryStore()
-    unit_of_work_factory = InMemoryUnitOfWorkFactory(store)
+def _build_default_use_cases(database: DatabaseRuntime) -> ApplicationUseCases:
+    # Every use case shares one engine/session factory while each invocation obtains
+    # its own short transaction through the SQL UnitOfWork boundary.
+    unit_of_work_factory = SqlAlchemyUnitOfWorkFactory(database.session_factory)
     clock = SystemClock()
     id_generator = UuidIdGenerator()
     return ApplicationUseCases(
@@ -67,16 +72,26 @@ def _build_default_use_cases() -> ApplicationUseCases:
     )
 
 
-def create_lifespan(use_cases_override: ApplicationUseCases | None = None) -> AppLifespan:
+def create_lifespan(
+    use_cases_override: ApplicationUseCases | None = None,
+    *,
+    settings: RuntimeSettings | None = None,
+) -> AppLifespan:
     """Create one application dependency graph per FastAPI lifespan."""
 
     @asynccontextmanager
     async def lifespan(application: FastAPI) -> AsyncGenerator[None, None]:
         # Overrides own the complete graph. Mixing individual replacements with
         # defaults could silently split related use cases across different stores.
-        use_cases = (
-            use_cases_override if use_cases_override is not None else _build_default_use_cases()
-        )
+        database: DatabaseRuntime | None = None
+        if use_cases_override is None:
+            runtime_settings = settings if settings is not None else RuntimeSettings()
+            require_current_schema(runtime_settings.database_path)
+            database = create_database_runtime(runtime_settings.database_path)
+            use_cases = _build_default_use_cases(database)
+            application.state.database_runtime = database
+        else:
+            use_cases = use_cases_override
         application.state.import_job = use_cases.import_job
         application.state.create_candidate_profile = use_cases.create_candidate_profile
         application.state.save_evidence = use_cases.save_evidence
@@ -94,5 +109,8 @@ def create_lifespan(use_cases_override: ApplicationUseCases | None = None) -> Ap
             del application.state.run_quick_screen
             del application.state.record_job_triage
             del application.state.workspace_queries
+            if database is not None:
+                del application.state.database_runtime
+                database.dispose()
 
     return lifespan

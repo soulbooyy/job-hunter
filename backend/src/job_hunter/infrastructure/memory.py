@@ -297,10 +297,10 @@ class _InMemoryScreeningRepository(ScreeningRepository):
             raise EntityNotFoundError(f"quick screen result not found: {result_id}") from None
 
     def get_latest_quick_screen_result(self, job_id: JobId) -> QuickScreenResult:
-        result_ids = self._state.screen_result_ids_by_job.get(job_id, ())
-        if not result_ids:
+        job = self._state.jobs.get(job_id)
+        if job is None or job.latest_quick_screen_result_id is None:
             raise EntityNotFoundError(f"quick screen result not found for job: {job_id}")
-        return self._state.screen_results[result_ids[-1]]
+        return self.get_quick_screen_result(job.latest_quick_screen_result_id)
 
     def list_quick_screen_results(self, job_id: JobId) -> tuple[QuickScreenResult, ...]:
         result_ids = self._state.screen_result_ids_by_job.get(job_id, ())
@@ -382,6 +382,9 @@ class _InMemoryUnitOfWork(UnitOfWork):
 
     def rollback(self) -> None:
         self._state = _empty_state()
+
+    def close(self) -> None:
+        pass
 
 
 class InMemoryUnitOfWorkFactory:

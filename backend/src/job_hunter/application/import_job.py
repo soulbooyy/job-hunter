@@ -117,7 +117,13 @@ class ImportJob:
         )
         # Each UnitOfWork stages one snapshot, one immutable version, and the logical
         # Job pointer together so lineage cannot be committed partially.
-        unit_of_work = self._unit_of_work_factory()
+        try:
+            unit_of_work = self._unit_of_work_factory()
+        except JobHunterError:
+            raise
+        except Exception:
+            # Construction failure has no transaction to roll back or close.
+            raise DependencyUnavailableError("job import dependency is unavailable") from None
         try:
             existing_job = (
                 unit_of_work.jobs.get_job(command.existing_job_id)
@@ -157,6 +163,8 @@ class ImportJob:
         except Exception:
             unit_of_work.rollback()
             raise DependencyUnavailableError("job persistence is unavailable") from None
+        finally:
+            unit_of_work.close()
 
         return ImportJobResult(
             job_id=job.job_id,

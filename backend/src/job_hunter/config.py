@@ -1,6 +1,7 @@
 """Typed runtime configuration loaded from the process environment."""
 
 from ipaddress import IPv4Address
+from pathlib import Path
 
 from pydantic import AnyHttpUrl, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -18,3 +19,4 @@ class RuntimeSettings(BaseSettings):
     api_host: IPv4Address = IPv4Address("127.0.0.1")
     api_port: int = Field(default=8000, ge=1, le=65535)
     frontend_origin: AnyHttpUrl = AnyHttpUrl("http://127.0.0.1:5173")
+    database_path: Path = Path(".data/job-hunter.db")

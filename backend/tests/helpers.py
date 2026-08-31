@@ -4,7 +4,7 @@ from datetime import datetime
 from job_hunter.api.lifespan import ApplicationUseCases
 from job_hunter.application.candidate_knowledge import CreateCandidateProfile, SaveEvidence
 from job_hunter.application.import_job import ImportJob
-from job_hunter.application.ports import Clock, IdGenerator
+from job_hunter.application.ports import Clock, IdGenerator, UnitOfWorkFactory
 from job_hunter.application.screening import RecordJobTriage, RunQuickScreen
 from job_hunter.application.workspace_queries import WorkspaceQueries
 from job_hunter.domain.ids import (
@@ -85,9 +85,14 @@ def build_test_use_cases(
     id_generator: IdGenerator,
     sources: tuple[JobSource, ...] | None = None,
     import_job: ImportJob | None = None,
+    unit_of_work_factory: UnitOfWorkFactory | None = None,
 ) -> ApplicationUseCases:
     """Build one explicit, internally shared application graph for API tests."""
-    factory = InMemoryUnitOfWorkFactory(InMemoryStore())
+    factory = (
+        unit_of_work_factory
+        if unit_of_work_factory is not None
+        else InMemoryUnitOfWorkFactory(InMemoryStore())
+    )
     importer = (
         import_job
         if import_job is not None

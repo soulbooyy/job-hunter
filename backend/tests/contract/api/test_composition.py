@@ -1,14 +1,19 @@
+import inspect
 from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import BaseModel, ConfigDict
 
 from job_hunter.api.app import create_app
+from job_hunter.api.routers import jobs, knowledge
 from job_hunter.application.candidate_knowledge import CreateCandidateProfile, SaveEvidence
 from job_hunter.application.import_job import ImportJob, ImportJobCommand, ImportJobResult
 from job_hunter.application.screening import RecordJobTriage, RunQuickScreen
 from job_hunter.application.workspace_queries import WorkspaceQueries
+from job_hunter.config import RuntimeSettings
+from job_hunter.infrastructure.persistence.database import upgrade_database
 from tests.helpers import DeterministicIdGenerator, FixedClock, build_test_use_cases
 
 NOW = datetime(2026, 8, 29, 9, 0, tzinfo=UTC)
@@ -42,11 +47,18 @@ class _UnusedImportJob(ImportJob):
         raise AssertionError("health route must not execute ImportJob")
 
 
-def test_create_app_composes_working_health_route() -> None:
-    application = create_app()
+def _migrated_settings(tmp_path: Path) -> RuntimeSettings:
+    database_path = tmp_path / "job-hunter.db"
+    upgrade_database(database_path)
+    return RuntimeSettings(database_path=database_path)
+
+
+def test_create_app_composes_working_health_route(tmp_path: Path) -> None:
+    application = create_app(settings=_migrated_settings(tmp_path))
 
     assert not hasattr(application.state, "import_job")
     with TestClient(application) as client:
+        assert hasattr(application.state, "database_runtime")
         assert isinstance(application.state.import_job, ImportJob)
         assert isinstance(application.state.create_candidate_profile, CreateCandidateProfile)
         assert isinstance(application.state.save_evidence, SaveEvidence)
@@ -63,6 +75,7 @@ def test_create_app_composes_working_health_route() -> None:
     assert not hasattr(application.state, "run_quick_screen")
     assert not hasattr(application.state, "record_job_triage")
     assert not hasattr(application.state, "workspace_queries")
+    assert not hasattr(application.state, "database_runtime")
 
 
 def test_lifespan_preserves_complete_explicit_use_case_bundle() -> None:
@@ -74,6 +87,7 @@ def test_lifespan_preserves_complete_explicit_use_case_bundle() -> None:
     application = create_app(use_cases=use_cases)
 
     with TestClient(application) as client:
+        assert not hasattr(application.state, "database_runtime")
         assert application.state.import_job is use_cases.import_job
         assert application.state.create_candidate_profile is use_cases.create_candidate_profile
         assert application.state.save_evidence is use_cases.save_evidence
@@ -86,8 +100,8 @@ def test_lifespan_preserves_complete_explicit_use_case_bundle() -> None:
         _ = application.state.import_job
 
 
-def test_default_composition_shares_state_across_the_vertical_path() -> None:
-    application = create_app()
+def test_default_composition_shares_state_across_the_vertical_path(tmp_path: Path) -> None:
+    application = create_app(settings=_migrated_settings(tmp_path))
     with TestClient(application) as client:
         imported = client.post(
             "/api/v1/jobs/import",
@@ -180,3 +194,18 @@ def test_openapi_keeps_existing_paths_and_response_statuses() -> None:
     assert set(job_detail.responses) == {"200", "404", "422", "503"}
     assert set(profiles.responses) == {"200", "503"}
     assert set(evidence_history.responses) == {"200", "503"}
+
+
+def test_routes_that_call_synchronous_use_cases_run_in_fastapi_threadpool() -> None:
+    for route_handler in (
+        jobs.list_jobs,
+        jobs.get_job,
+        jobs.import_manual_job,
+        jobs.run_quick_screen,
+        jobs.record_job_triage,
+        knowledge.list_candidate_profiles,
+        knowledge.list_evidence,
+        knowledge.create_candidate_profile,
+        knowledge.save_evidence,
+    ):
+        assert not inspect.iscoroutinefunction(route_handler)

@@ -216,6 +216,8 @@ class WorkspaceQueries:
         except Exception:
             unit_of_work.rollback()
             raise DependencyUnavailableError("workspace read dependency is unavailable") from None
+        finally:
+            unit_of_work.close()
 
     def list_jobs(self) -> JobListResult:
         return self._read(self._list_jobs)
@@ -272,8 +274,14 @@ class WorkspaceQueries:
     def _summary(cls, unit_of_work: UnitOfWork, job: Job) -> JobSummaryReadModel:
         version = cls._version(unit_of_work, job, job.active_version_id)
         screens = unit_of_work.screening.list_quick_screen_results(job.job_id)
-        current_screen = (
-            screens[-1] if screens and screens[-1].job_version_id == version.version_id else None
+        current_screen = next(
+            (
+                screen
+                for screen in screens
+                if screen.result_id == job.latest_quick_screen_result_id
+                and screen.job_version_id == version.version_id
+            ),
+            None,
         )
         triage_records = unit_of_work.screening.list_triage_records(job.job_id)
         current_triage = next(
@@ -334,7 +342,7 @@ class WorkspaceQueries:
         )
         screens = unit_of_work.screening.list_quick_screen_results(job.job_id)
         active_profile_id = unit_of_work.knowledge.get_active_profile_id()
-        latest_result_id = screens[-1].result_id if screens else None
+        latest_result_id = job.latest_quick_screen_result_id
         screening_results = tuple(
             QuickScreenReadModel(
                 result_id=result.result_id,

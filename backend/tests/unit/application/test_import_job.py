@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from typing import Never
 
 import pytest
 
@@ -207,3 +208,34 @@ def test_control_plane_dependency_errors_are_also_translated() -> None:
 
     assert "clock" not in str(raised.value)
     assert store.is_empty()
+
+
+class _FailingUnitOfWorkFactory:
+    def __call__(self) -> Never:
+        raise RuntimeError("raw session factory and local path detail")
+
+
+def test_unit_of_work_factory_failure_uses_stable_import_error() -> None:
+    use_case = ImportJob(
+        source_registry=JobSourceRegistry((ManualJDSource(),)),
+        unit_of_work_factory=_FailingUnitOfWorkFactory(),
+        clock=FixedClock(NOW),
+        id_generator=DeterministicIdGenerator(),
+    )
+
+    with pytest.raises(DependencyUnavailableError) as raised:
+        use_case.execute(
+            ImportJobCommand(
+                source_input=ManualJDInput(
+                    title="AI Engineer",
+                    company="Example AI",
+                    city="Shenzhen",
+                    content="Build agents.",
+                ),
+                correlation_id=CorrelationId("correlation-001"),
+                run_id=RunId("run-001"),
+            )
+        )
+
+    assert str(raised.value) == "job import dependency is unavailable"
+    assert "session" not in str(raised.value)

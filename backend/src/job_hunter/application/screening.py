@@ -123,7 +123,7 @@ class RunQuickScreen:
                 correlation_id=command.correlation_id,
                 run_id=command.run_id,
             )
-            screened_job = job.with_screening()
+            screened_job = job.with_screening(screen_result.result_id)
             unit_of_work.jobs.save_job(screened_job)
             unit_of_work.screening.add_quick_screen_result(screen_result)
             unit_of_work.commit()
@@ -133,6 +133,8 @@ class RunQuickScreen:
         except Exception:
             unit_of_work.rollback()
             raise DependencyUnavailableError("quick screen dependency is unavailable") from None
+        finally:
+            unit_of_work.close()
         return RunQuickScreenResult(
             quick_screen_result_id=screen_result.result_id,
             job_id=screen_result.job_id,
@@ -196,10 +198,11 @@ class RecordJobTriage:
             screen_result = unit_of_work.screening.get_quick_screen_result(
                 command.quick_screen_result_id
             )
-            latest = unit_of_work.screening.get_latest_quick_screen_result(command.job_id)
             if screen_result.job_id != job.job_id:
                 raise ConflictError("quick screen result belongs to another job")
-            if latest.result_id != screen_result.result_id:
+            # The Job pointer is the transactionally guarded authority. Repository
+            # append order is history, not permission to triage a concurrent result.
+            if job.latest_quick_screen_result_id != screen_result.result_id:
                 raise ConflictError("quick screen result is stale")
             if screen_result.job_version_id != job.active_version_id:
                 raise ConflictError("quick screen result targets a stale job version")
@@ -222,6 +225,8 @@ class RecordJobTriage:
         except Exception:
             unit_of_work.rollback()
             raise DependencyUnavailableError("job triage dependency is unavailable") from None
+        finally:
+            unit_of_work.close()
         return RecordJobTriageResult(
             triage_decision_id=record.decision_id,
             job_id=record.job_id,

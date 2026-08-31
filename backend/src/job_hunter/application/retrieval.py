@@ -210,6 +210,8 @@ class RetrieveEvidence:
             raise DependencyUnavailableError(
                 "evidence retrieval dependency is unavailable"
             ) from None
+        finally:
+            unit_of_work.close()
         return RetrieveEvidenceResult(
             retrieval_run_id=retrieval_run.retrieval_run_id,
             requirement_id=retrieval_run.requirement_id,

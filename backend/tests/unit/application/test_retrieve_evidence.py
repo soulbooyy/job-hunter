@@ -230,6 +230,9 @@ class _CorruptUnitOfWork:
     def rollback(self) -> None:
         self._delegate.rollback()
 
+    def close(self) -> None:
+        self._delegate.close()
+
 
 class _SingleUnitOfWorkFactory:
     def __init__(self, unit_of_work: UnitOfWork) -> None:

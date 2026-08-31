@@ -25,6 +25,12 @@ class ConflictError(JobHunterError):
     code = "conflict"
 
 
+class StaleWriteError(ConflictError):
+    """Optimistic write lost because authoritative state changed first."""
+
+    code = "stale_write"
+
+
 class DependencyUnavailableError(JobHunterError):
     """A boundary dependency failed without exposing its raw exception."""
 

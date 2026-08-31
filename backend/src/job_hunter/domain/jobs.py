@@ -8,6 +8,7 @@ from job_hunter.domain.ids import (
     CorrelationId,
     JobId,
     JobVersionId,
+    QuickScreenResultId,
     RunId,
     SourceReferenceId,
     SourceSnapshotId,
@@ -142,6 +143,7 @@ class Job:
     version_ids: tuple[JobVersionId, ...]
     source_references: tuple[SourceReference, ...]
     lifecycle_status: JobLifecycleStatus
+    latest_quick_screen_result_id: QuickScreenResultId | None = None
 
     def __post_init__(self) -> None:
         # Persistence hydration and direct construction share this aggregate-local
@@ -157,6 +159,11 @@ class Job:
         reference_ids = tuple(reference.reference_id for reference in self.source_references)
         if len(set(reference_ids)) != len(reference_ids):
             raise InputValidationError("source reference IDs must be unique")
+        if self.lifecycle_status is JobLifecycleStatus.IMPORTED:
+            if self.latest_quick_screen_result_id is not None:
+                raise InputValidationError("imported job cannot have a latest screen result")
+        elif self.latest_quick_screen_result_id is None:
+            raise InputValidationError("screened or triaged job requires a latest screen result")
 
     @classmethod
     def create(cls, version: JobVersion, source_reference: SourceReference) -> "Job":
@@ -170,6 +177,7 @@ class Job:
             version_ids=(version.version_id,),
             source_references=(source_reference,),
             lifecycle_status=JobLifecycleStatus.IMPORTED,
+            latest_quick_screen_result_id=None,
         )
 
     def with_version(self, version: JobVersion, source_reference: SourceReference) -> "Job":
@@ -191,15 +199,17 @@ class Job:
             # A new active JobVersion invalidates any recommendation or human decision
             # made against the previous version and returns the checkpoint to Imported.
             lifecycle_status=JobLifecycleStatus.IMPORTED,
+            latest_quick_screen_result_id=None,
         )
 
-    def with_screening(self) -> "Job":
+    def with_screening(self, result_id: QuickScreenResultId) -> "Job":
         return Job(
             job_id=self.job_id,
             active_version_id=self.active_version_id,
             version_ids=self.version_ids,
             source_references=self.source_references,
             lifecycle_status=JobLifecycleStatus.SCREENED,
+            latest_quick_screen_result_id=result_id,
         )
 
     def with_triage_decision(self, decision: TriageDecision) -> "Job":
@@ -218,4 +228,5 @@ class Job:
             version_ids=self.version_ids,
             source_references=self.source_references,
             lifecycle_status=lifecycle_status,
+            latest_quick_screen_result_id=self.latest_quick_screen_result_id,
         )

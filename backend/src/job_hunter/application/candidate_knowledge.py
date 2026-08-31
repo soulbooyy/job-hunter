@@ -87,6 +87,8 @@ class CreateCandidateProfile:
                 raise DependencyUnavailableError(
                     "candidate profile persistence is unavailable"
                 ) from None
+            finally:
+                unit_of_work.close()
         except JobHunterError:
             raise
         except Exception:
@@ -194,6 +196,8 @@ class SaveEvidence:
         except Exception:
             unit_of_work.rollback()
             raise DependencyUnavailableError("evidence persistence is unavailable") from None
+        finally:
+            unit_of_work.close()
         return SaveEvidenceResult(
             evidence_id=item.evidence_id,
             evidence_version_id=version.version_id,

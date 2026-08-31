@@ -235,7 +235,9 @@ def test_new_screen_and_job_version_keep_history_but_change_actionability() -> N
 
     assert len(after_new_version.versions) == 2
     assert after_new_version.versions[-1].is_active
-    assert after_new_version.screening_results[-1].is_latest_result
+    # A new active JobVersion clears the authoritative pointer; the former screen
+    # remains historical but is no longer "latest" for an actionable checkpoint.
+    assert not after_new_version.screening_results[-1].is_latest_result
     assert after_new_version.screening_results[-1].job_version_status is (
         JobVersionReadStatus.HISTORICAL
     )

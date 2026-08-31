@@ -29,7 +29,7 @@ router = APIRouter(prefix="/api/v1/jobs", tags=["jobs"])
     response_model=JobListResponse,
     responses={503: {"model": ErrorResponse}},
 )
-async def list_jobs(
+def list_jobs(
     response: Response,
     queries: WorkspaceQueriesDep,
 ) -> JobListResponse:
@@ -47,7 +47,7 @@ async def list_jobs(
         503: {"model": ErrorResponse},
     },
 )
-async def get_job(
+def get_job(
     job_id: Annotated[str, Path(min_length=1, pattern=r"^\S+$")],
     response: Response,
     queries: WorkspaceQueriesDep,
@@ -68,7 +68,7 @@ async def get_job(
         503: {"model": ErrorResponse},
     },
 )
-async def import_manual_job(
+def import_manual_job(
     request: ImportJobRequest,
     import_job: ImportJobDep,
 ) -> ImportJobResponse:
@@ -87,7 +87,7 @@ async def import_manual_job(
         503: {"model": ErrorResponse},
     },
 )
-async def run_quick_screen(
+def run_quick_screen(
     job_id: Annotated[str, Path(min_length=1, pattern=r"^\S+$")],
     request: QuickScreenRequest,
     use_case: RunQuickScreenDep,
@@ -106,7 +106,7 @@ async def run_quick_screen(
         503: {"model": ErrorResponse},
     },
 )
-async def record_job_triage(
+def record_job_triage(
     job_id: Annotated[str, Path(min_length=1, pattern=r"^\S+$")],
     request: TriageRequest,
     use_case: RecordJobTriageDep,

@@ -7,6 +7,7 @@ from job_hunter.domain.ids import (
     CorrelationId,
     JobId,
     JobVersionId,
+    QuickScreenResultId,
     RunId,
     SourceReferenceId,
     SourceSnapshotId,
@@ -96,12 +97,14 @@ def test_new_version_changes_active_pointer_and_keeps_history() -> None:
 def test_screening_and_human_triage_are_explicit_reversible_transitions() -> None:
     imported = Job.create(_version(), _reference())
 
-    screened = imported.with_screening()
+    screened = imported.with_screening(QuickScreenResultId("screen-001"))
     skipped = screened.with_triage_decision(TriageDecision.SKIPPED)
     restored = skipped.with_triage_decision(TriageDecision.SHORTLISTED)
 
     assert screened.lifecycle_status is JobLifecycleStatus.SCREENED
+    assert screened.latest_quick_screen_result_id == QuickScreenResultId("screen-001")
     assert skipped.lifecycle_status is JobLifecycleStatus.SKIPPED
+    assert skipped.latest_quick_screen_result_id == screened.latest_quick_screen_result_id
     assert restored.lifecycle_status is JobLifecycleStatus.SHORTLISTED
 
 
@@ -114,7 +117,9 @@ def test_imported_job_cannot_be_triaged_before_screening() -> None:
 
 def test_new_job_version_invalidates_an_earlier_screening_decision() -> None:
     job = Job.create(_version(), _reference())
-    shortlisted = job.with_screening().with_triage_decision(TriageDecision.SHORTLISTED)
+    shortlisted = job.with_screening(QuickScreenResultId("screen-001")).with_triage_decision(
+        TriageDecision.SHORTLISTED
+    )
 
     updated = shortlisted.with_version(
         _version(number=2, snapshot_id="snapshot-002"),
@@ -122,6 +127,17 @@ def test_new_job_version_invalidates_an_earlier_screening_decision() -> None:
     )
 
     assert updated.lifecycle_status is JobLifecycleStatus.IMPORTED
+    assert updated.latest_quick_screen_result_id is None
+
+
+def test_rescreen_advances_authoritative_latest_result_pointer() -> None:
+    job = Job.create(_version(), _reference())
+
+    first = job.with_screening(QuickScreenResultId("screen-z"))
+    second = first.with_screening(QuickScreenResultId("screen-a"))
+
+    assert first.latest_quick_screen_result_id == QuickScreenResultId("screen-z")
+    assert second.latest_quick_screen_result_id == QuickScreenResultId("screen-a")
 
 
 def test_job_rejects_a_non_sequential_new_version() -> None:
