@@ -217,6 +217,9 @@ The repository root must provide stable wrapper commands. Their underlying imple
 ./scripts/dev            start local FastAPI and Vite
 ./scripts/check          run all deterministic checks
 ./scripts/eval-replay    run reproducible replay evaluation
+./scripts/semantic-check verify the optional adapter in an isolated locked environment
+./scripts/semantic-setup explicitly acquire and verify the pinned local ONNX model
+./scripts/hybrid-eval    run explicit local-model synthetic Hybrid evaluation
 ./scripts/eval-live      run explicit live evaluation; never implicit
 ```
 
@@ -227,12 +230,15 @@ Backend format check
 Backend lint
 Pyright strict
 Backend deterministic tests
+Isolated optional Chroma adapter format/type/persistence tests
 Frontend format/lint/typecheck
 Frontend deterministic tests/build
 Selected mock-backed Playwright E2E
 ```
 
 Pre-commit runs only low-latency formatter/linter feedback. CI runs locked verification equivalent to `./scripts/check`; it does not maintain a separate command universe.
+
+`semantic-setup` is never part of default setup or request handling. `semantic-check` skips the real embedding-runtime assertion when the explicitly installed model is absent, while still verifying locked Chroma packaging and persistent index behavior. A local Hybrid quality report requires `semantic-setup` first and remains non-promotional unless the exact eligible human-reviewed Frozen Holdout satisfies the Acceptance thresholds.
 
 ## 14. Completion Checklist
 

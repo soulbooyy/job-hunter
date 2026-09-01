@@ -5,8 +5,9 @@ This document is the concise, rolling implementation status shared by developers
 ## Current Baseline
 
 - Branch: `main`
-- Latest stable implementation commit: `e9e2630` (`feat: add durable SQLite workspace persistence`)
-- Last verified: 2026-08-31 17:15 HKT
+- Latest stable code commit: `7528f57` (`feat: add hybrid retrieval and context packaging`)
+- Slice 6 implementation: developer review complete and code committed
+- Last verified: 2026-09-01 15:17 HKT
 - `./scripts/check`: passing
 
 ## Completed Slices
@@ -27,24 +28,25 @@ This document is the concise, rolling implementation status shared by developers
 | Frontend persistence-boundary synchronization | SQLite restart-recovery copy, explicit local-only/no-backup boundary, and stable `stale_write` conflict mapping with runtime-contract tests | `45a76e1` |
 | Durable SQLite Workspace persistence | Alembic-managed SQLAlchemy/SQLite graph, restart durability, consistent UoW snapshots, optimistic concurrency, authoritative latest-screen coordination, normalized lineage ownership, metadata-drift verification, and persistent default lifespan composition | `e9e2630` |
 | Spike 5.5 — Bounded Chroma feasibility | Opt-in locked Chroma harness, process reopen, Evidence metadata filtering and mutation, exact SQLite rebuild, privacy-safe failures, synthetic benchmark, and constrained admission report | `b631f90` |
+| Slice 6 — Policy-Driven Hybrid Retrieval and Context Packaging | Default-disabled local semantic derivative, deterministic Hybrid fusion and RetrievalPolicy, immutable RetrievalRun/ContextPackage lineage, source-reconstructed hydration, final-context promotion accounting, and fail-closed adapter authority | `7528f57` |
 
 ## Active Slice
 
-**None — Spike 5.5 is complete.**
-
-Formal Slice 6 has not started. It remains one undivided vertical slice and requires separate explicit authorization.
-
-Spike 5.5 concluded `admitted_with_constraints`; `docs/feasibility/chroma-v1.md` records the bounded evidence and limitations. Chroma remains outside the production path and default dependency set.
+No development slice is active. Slice 7 has been planned but is not authorized for implementation.
 
 ## Verification
 
-- Final `./scripts/check`: passed with Ruff format/check, Pyright strict (0 errors), 136 backend tests, frontend format/lint/typecheck, 37 Vitest API/component test cases, 4 Playwright Chromium E2E cases, and Vite build.
-- Backend unit, API contract, and persistence integration tests: 136 passed, including 22 API contract/composition tests, 15 real-SQLite integration tests, and 34 retrieval/evaluation tests.
+- Final `./scripts/check`: passed after the Slice 6 implementation, review corrections, and documentation changes, including backend, isolated semantic adapter, temporary-database migration/drift, frontend, Chromium E2E, and production build checks.
+- Backend unit, API contract, and persistence integration tests: 160 passed. This includes 22 API contract/composition tests and 15 real SQLite integration tests.
 - SQLite verification covers idempotent Alembic upgrade, Alembic-derived head and metadata-drift checks, startup schema-head refusal, complete Workspace and RetrievalRun restart recovery, a real two-connection read snapshot, independent-Session stale writes for Job/Profile/Evidence roots, both concurrent re-screen/Triage commit orders, normalized lineage ownership and corruption rejection, losing-lineage rollback, transaction atomicity, write-order preservation, and invalid-payload error redaction.
 - `./scripts/eval-replay`: passed offline against `smoke-v1`; the report records all dataset/parser/retriever/policy versions, contains no Evidence content, and explicitly reports that AC-DATA-001 is not satisfied.
+- `./scripts/semantic-setup`: passed with the pinned `all-MiniLM-L6-v2` archive SHA-256 and a real 384-dimension ONNX readiness probe. Model acquisition was explicit and outside default setup/request handling.
+- `./scripts/semantic-check`: passed in an isolated locked Chroma 1.5.9 environment with Ruff, Pyright strict (0 errors), persistent reopen/filter/reconcile/no-document-storage coverage, and 3 tests including installed ONNX runtime and persisted-metadata corruption assertions.
+- `./scripts/hybrid-eval`: passed against 20 non-sensitive Synthetic cases. With the frozen `semantic-chroma-v1` distance cutoff, Hybrid recorded Recall@5 0.90, Direct MRR 0.825, and 68.07% retrieval-selection token reduction. The fixture has no case above the fixed 1,200-token large-context threshold and no human-confirmed No-Evidence cases, so final ContextPackage reduction and paired degradation metrics are intentionally unavailable and the report records `promoted=false`. These synthetic metrics are mechanics evidence only.
 - `./scripts/chroma-spike`: passed in an isolated locked environment with Ruff format/check, Spike Pyright strict (0 errors), 10 Spike contracts, and the 256-record deterministic benchmark. The report records 1,280.525 ms cold indexing, 1.624 ms query p95, 49.348 ms process reopen plus first query, 87.415 ms reconcile, and 49.625 ms full rebuild on Darwin arm64/Python 3.12.13; all frozen ceilings passed.
 - `git diff --check`: passed.
 - The prior localhost browser smoke covered Profile and Manual JD browser reload. A new manual browser smoke was not required because HTTP contracts are unchanged; persistent restart behavior is exercised against the real SQLite adapter in backend integration tests.
+- Frontend deterministic suite: 37 passed; format, lint, strict TypeScript checking, and Vite production build passed without Slice 6 frontend changes.
 - Playwright Workspace suite: 4 passed against deterministic browser-level HTTP mocks, covering full Manual JD path 1, post-mutation readback and reload, Job switching, stale/current/historical projections, enabled/disabled Triage controls, selected QuickScreenResult targeting, and safe network-unavailable retry recovery.
 - Live/remote checks not run: GitHub Actions requires a later authorized push; live BOSS and LLM checks were not run. Web Workspace paths 2–5 remain unavailable because their product slices do not yet exist.
 
@@ -70,6 +72,12 @@ Spike 5.5 concluded `admitted_with_constraints`; `docs/feasibility/chroma-v1.md`
 - `quick-screen-v1` uses only preferred city, target-role, and confirmed-skill signals. Recommendations and human Triage decisions are separate append-only records; reruns and new JobVersions fail stale decisions closed.
 - `evidence-eligibility-v1` receives only repository values that match both the owning EvidenceItem and its active-version pointer, then admits `VALID` Evidence whose sensitivity is explicitly allowed. Retrieval adapters cannot create factual lineage: mismatched active versions or unknown returned IDs fail closed before retrieval or commit, and evaluation judgments outside the same eligible universe are invalid.
 - `full-context-v1` returns the exact eligible set or `NOT_EXECUTABLE` without truncation; Application and Domain both enforce its strategy semantics. `lexical-metadata-v1` uses exact phrase, normalized tokens, metadata signals, top-k, stable ID tie-breaking, and a deterministic ranked-prefix token budget. RetrievalRun records eligible and selected token estimates separately; ContextBuilder retains responsibility for the later final-package budget.
+- `evidence-chunk-v1` derives stable version-bound chunks; `semantic-onnx-minilm-v1` and `chroma-evidence-v1` remain explicit, local, and default-disabled. Chroma contains vectors plus identity/filter metadata, never Candidate documents, and can be reconciled only from active authoritative SQLite EvidenceVersions.
+- `semantic-chroma-v1` validates every source match against chunks deterministically rebuilt from the exact authoritative EvidenceVersion inputs before relevance or top-k filtering, then rejects cosine distances greater than 0.75 instead of treating the nearest valid vector as evidence. Unknown/stale/cross-scope chunks and persisted manifest/metadata corruption fail closed; only a typed runtime/model-unavailable condition may activate fallback.
+- `hybrid-rrf-v1` fuses independent Lexical and Semantic ranks with equal weights and constant 60. `retrieval-policy-v1` uses fixed precedence, requires typed Frozen-Holdout promotion evidence before selecting Hybrid, records every fallback, and permits at most one deterministic supplemental query. The Application boundary independently recomputes eligible and selected Evidence token totals from authoritative content before any RetrievalRun commit.
+- `context-builder-v1` persists an immutable redacted ContextPackage with protected Requirement/instruction/workflow/Profile entries, content hashes, exact source lineage, explicit inclusion/exclusion reasons, packaging overhead, and an independent final token budget. `context-redaction-v1` scrubs recognized contact data from every entry before hashing and accounting. Protected-budget overflow returns `context_budget_exceeded`; evidence uses a ranked prefix without silent truncation.
+- RetrievalRun policy/semantic/chunk lineage and the complete ordered ContextPackage entry/Requirement/Evidence/inclusion/exclusion/Chunk lineage are normalized by migration `0003_hybrid_context_lineage`, cross-validated against runtime-validated payloads, and rejected through redacted dependency failures when corrupted. Context hydration reconstructs Requirement/Profile projections and Evidence chunks from authoritative rows, reapplies redaction, and verifies exact content/hash/token values; coherent payload plus normalized-row content fabrication and missing protected entries remain invalid. ContextBuilder consumes exact semantic chunk IDs and never broadens them to all chunks of an EvidenceVersion.
+- AC-RAG-002 reports retrieval-selection token reduction separately from final ContextPackage token reduction. Promotion considers only cases above the 1,200-token large-context threshold, uses the shared ContextBuilder projection, and compares paired Hybrid/Full Context results over the exact same eligibility universe. Missing large relevant or large No-Evidence denominators prevents promotion instead of assuming a perfect Full Context baseline.
 - Parser reports expose per-priority precision, recall, F1, support, raw confusion counts, and Macro-F1. Production QuickScreen and evaluation reports use one shared policy-version constant.
 - `smoke-v1` is a hand-authored synthetic mechanics fixture, not a quality dataset. Its perfect parser/QuickScreen numbers and baseline retrieval differences support no product-quality claim; the AC-DATA-001 curated corpus remains outstanding.
 - InMemoryStore remains a deterministic single-writer test adapter with no concurrency-isolation claim; it is no longer the default application runtime.
@@ -95,12 +103,12 @@ Spike 5.5 concluded `admitted_with_constraints`; `docs/feasibility/chroma-v1.md`
 - Remote GitHub Actions cannot be observed until the committed baseline is pushed; pushing is intentionally not authorized in this slice.
 - The local SQLite database contains private Candidate and Job content and currently has no application-level encryption, backup, recovery, or sync workflow. It remains a local file excluded by Git patterns and must not be copied or committed casually.
 - Startup intentionally fails when the configured database is not at the current Alembic head; developers must run `./scripts/setup` or `./scripts/db-upgrade` after pulling schema changes.
-- Parser, QuickScreen, and baseline retrieval now have reproducible metric runners, but only synthetic smoke cases exist. Quality and promotion decisions remain unmeasured until the curated Development and Frozen Holdout minimums are independently annotated.
+- Parser, QuickScreen, and retrieval now have reproducible metric runners. `hybrid-synthetic-v1` satisfies only the 20-case Synthetic Edge Case count; curated Development and independently annotated Frozen Holdout minimums, including human-confirmed No-Evidence labels, remain outstanding. Hybrid therefore remains experimental and unpromoted.
 - Browser reload and backend restart now restore the currently implemented Workspace graph from SQLite; cross-device sync and disaster recovery remain out of scope.
 - Web Workspace path 1 and backend-unavailable recovery now pass locally. The complete Web Workspace Hard Gate remains open until paths 2–5 and their required failure cases exist; remote GitHub CI execution is not observable before an authorized commit and push.
-- Chroma packaging and runtime behavior are unverified on Linux, Windows, and Intel macOS. Real embedding selection, semantic retrieval quality, Candidate scope/permission/redaction eligibility, production lifecycle, rebuild/fallback operation, and release packaging remain open for formal Slice 6.
+- Chroma 1.5.9 packaging, persistent lifecycle, active-version rebuild, fallback, metadata eligibility, and the pinned local ONNX provider are verified only on Darwin arm64/Python 3.12.13. Linux, Windows, Intel macOS, larger local indexes, and real Candidate retrieval quality remain unverified.
 - No current local blocker.
 
 ## Next Slice
 
-The recommended next backend slice is formal Slice 6, kept as one undivided vertical slice: production rebuildable semantic indexing, HybridRetriever and application-level fusion, versioned automatic RetrievalPolicy, immutable RetrievalRun policy lineage and deterministic fallback, then ContextBuilder and immutable ContextPackage. It may start only with explicit authorization; Chroma must remain experimental unless curated evaluation satisfies the applicable AC-RAG promotion thresholds.
+The recommended next backend slice is Slice 7: RuntimeContextManager, Capability Policy, and a typed LangGraph context-preparation workflow boundary. Its implementation requires separate authorization. It must preserve immutable ContextPackage lineage, cannot promote Hybrid without the eligible Frozen Holdout, and must not introduce DeepFit/material generation, approvals, or browser side effects.

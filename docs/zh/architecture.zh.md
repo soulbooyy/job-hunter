@@ -325,11 +325,19 @@ EvidenceRetriever
 
 SQLite 保存 authoritative Evidence 与 metadata。Chroma 只保存可重建向量索引，并记录 embedding model/provider、dimension、chunk policy 和 index version。正式采用 Chroma 前必须完成 local feasibility spike：persistence、metadata filtering、update/delete、rebuild、packaging 和 benchmark。
 
+Spike 5.5 以约束条件接纳 Chroma 1.5.9，因此 production semantic retrieval 仍是显式安装、默认关闭的能力。`semantic-onnx-minilm-v1` 封装 Chroma 的本地 `all-MiniLM-L6-v2` ONNX artifact，记录 384 维和 archive SHA-256 `913d7300ceae3b2dbc2c50d1de4baacab4be7b9380491c27fab7418616a16ec3`，并向禁用 embedding function 的 collection 传入显式 embedding。Model acquisition 只能通过显式 setup；request handling 绝不下载模型。Runtime/model 缺失或不可用时 semantic retrieval 不可用，但 authoritative SQLite 仍正常工作。非法 collection manifest、record metadata、source accounting 或 chunk lineage 属于 integrity failure，必须 fail closed，不能触发 fallback。
+
+`evidence-chunk-v1` 将 normalized Evidence 内容确定性切分为最多 192 estimated token、32-token overlap 的 chunk。稳定 EvidenceChunk ID 由 parent EvidenceVersion ID、chunk-policy version、ordinal 和 normalized-content hash 派生。Chunk 与 embedding 都是 derivative value：Chroma 只保存 vector 与非内容 identity/filter metadata，RetrievalRun 和 ContextPackage 保留 authoritative EvidenceVersion lineage。Chroma 的 `documents` 字段绝不保存 Candidate 内容。
+
 首个 retrieval baseline 只处理从 authoritative repository 取得的 active EvidenceItemVersion。Application boundary 在 eligibility 或 retrieval 前验证每个返回 version 同时匹配所属 EvidenceItem ID 与 active-version pointer。共享 eligibility policy 仅允许 caller 明确授权 sensitivity 的 `VALID` Evidence；被排除的 ID 和原因保留在 RetrievalRun lineage 中。Retriever output 与 evaluation report 只记录稳定 ID、rank、score、reason 和版本 metadata，不复制 Candidate Evidence 内容。
 
 `FullContextRetriever` 以确定性顺序返回全部 eligible Evidence；当版本化 deterministic token estimate 超出预算时返回明确 `NOT_EXECUTABLE`。Application 与 Domain validation 分别拒绝未精确覆盖 eligible set 却声称 completed 的 Full Context result。`LexicalMetadataRetriever` 使用版本化 exact-phrase、normalized-token 与 metadata matching，并用稳定 ID 打破并列；它按 `top_k` 与 retrieval `max_tokens` 共同约束选择 ranked prefix，不会跳过超预算的高排名 Evidence 去接纳更弱 Evidence。零信号明确返回 `NO_RELEVANT_EVIDENCE`，有信号但最高排名项也无法纳入预算时返回 `NOT_EXECUTABLE`。
 
-每个 RetrievalRun 分别记录完整 eligible Evidence set 与 selected Evidence 的 token estimate；completed retrieval 的 selected estimate 必须不超过 `max_tokens`。这只是 retrieval-selection budget；未来 ContextBuilder 加入 Requirement、instruction 与 packaging overhead 后，另行负责最终 ContextPackage hard budget。
+每个 RetrievalRun 分别记录完整 eligible Evidence set 与 selected Evidence 的 token estimate。Application boundary 会从 authoritative EvidenceVersion content 重新计算两者，要求与 adapter result 精确一致，并拒绝 authoritative estimate 超过 `max_tokens` 的 completed selection。这只是 retrieval-selection budget；ContextBuilder 另行负责加入 Requirement、instruction 与 packaging overhead 后的最终 ContextPackage hard budget。
+
+`hybrid-rrf-v1` 对独立排序的 Lexical/Metadata 与 Semantic 结果执行 application-level reciprocal-rank fusion。两个来源权重均为 1.0，RRF constant 为 60，chunk 结果先聚合到其 authoritative EvidenceVersion，最终并列使用稳定 EvidenceItem/EvidenceVersion ID 打破。Raw lexical/semantic score 只作为 source observation 保留，绝不假定二者同尺度而直接相加。最终选择仍是受 `top_k` 和 token budget 约束的确定性 ranked prefix。
+
+`semantic-chroma-v1` 从 authoritative EvidenceVersion 输入重建完整 allowed EvidenceChunk identity set，并在 relevance 或 `top_k` cutoff 前验证每一个 source match。未知、过期、跨 scope 或伪造的 Evidence/Version/Chunk lineage 会使整个 retrieval 失败。版本化 experimental relevance rule 把 cosine distance 大于 `0.75` 视为证据不足；这些合法但不相关的邻居不会成为 retrieval hit。该固定 cutoff 用于提供显式 No-Evidence/Insufficient-Evidence 行为，不构成质量声明；任何重新校准都必须发布新的 retriever version，并通过合格 evaluation dataset 验证。
 
 ### 9.3 Deterministic Retrieval Policy
 
@@ -340,11 +348,15 @@ SQLite 保存 authoritative Evidence 与 metadata。Chroma 只保存可重建向
 
 每次运行记录 policy version、输入统计、selected strategy 和原因。Hybrid 未达到 promotion threshold 时保留为 experimental，并回退到 Full Context 或 Lexical。
 
-Baseline slice 不实现自动 strategy selection。Application use case 接收一个已配置的 `EvidenceRetriever`，强制 Job 为 Shortlisted 且 Requirement 属于当前 JobVersion，并持久化不可变 RetrievalRun，将 Requirement 关联到实际返回的 EvidenceItemVersion。
+`retrieval-policy-v1` 使用固定 precedence：可执行且 eligible context 不超过 1,200 estimated token 时选择 Full Context；identifier、certification、named project 与 explicit skill lookup 选择 Lexical/Metadata；只有 exact evaluation version 已 promotion 且 semantic runtime ready 时，semantic requirement-to-experience matching 才选择 Hybrid。否则明确记录并执行可行的 Full Context fallback，或在 Full Context 不可执行时回退 Lexical/Metadata。Policy selection 与 fallback 绝不静默发生。
+
+Application use case 强制 Job 为 Shortlisted 且 Requirement 属于当前 JobVersion，并持久化不可变 RetrievalRun，将 Requirement 关联到实际返回的 EvidenceItemVersion 与 derivative chunk。每次运行记录 policy version、输入统计、promotion evidence、semantic readiness、initial/selected strategy、decision/fallback reason、index/embedding/chunk version，以及零或一次 supplemental retrieval。确定性 sufficiency check 最多使用 typed Requirement metadata 重写 atomic Requirement 一次；一次 supplemental retrieval 后必须返回明确的 no/insufficient evidence，而不是继续搜索。
+
+只有 typed、redacted 的 semantic-runtime-unavailable failure 可以触发并记录 policy fallback。非法 source lineage、accounting 或其他 adapter contract violation 必须 fail closed，不能被重新分类为普通 semantic unavailability。
 
 ### 9.3.1 Evaluation Boundary
 
-`evals/datasets/` 下的 versioned JSON 属于不可信 IO，runner 构造 typed evaluation case 前必须通过 Pydantic validation。Dataset loader 拒绝重复 case ID、悬空或重复 judgment、指向该 case eligible Evidence universe 之外的 relevance judgment，以及未人工确认的 No-Evidence 标签。Retrieval Recall@5 在存在 relevant judgment 的 case 上做 macro average；Direct-Evidence MRR 在至少有一个 `DIRECT` judgment 的 case 上计算；No-Evidence Accuracy 只统计明确人工确认的 No-Evidence case。Parser atomic precision/recall 使用 exact normalized-text matching；priority per-class precision、recall、F1、support 与 Macro-F1 只对已匹配 atomic requirement 计算。QuickScreen 单独报告 exact-label accuracy 和 raw confusion counts，并与 production execution 共用同一个 policy-version constant。每个 metric 都包含 numerator/denominator 或 confusion count。Replay model output 仅限 evaluation，不得进入 Domain State，也不得调用 live provider。
+`evals/datasets/` 下的 versioned JSON 属于不可信 IO，runner 构造 typed evaluation case 前必须通过 Pydantic validation。Dataset loader 拒绝重复 case ID、悬空或重复 judgment、指向该 case eligible Evidence universe 之外的 relevance judgment，以及未人工确认的 No-Evidence 标签。Retrieval Recall@5 在存在 relevant judgment 的 case 上做 macro average；Direct-Evidence MRR 在至少有一个 `DIRECT` judgment 的 case 上计算；No-Evidence Accuracy 只统计明确人工确认的 No-Evidence case。AC-RAG-002 promotion 只在 eligible context 超过固定 policy large-context threshold 的 case 上评估，并在完全相同的 eligibility universe 中把 Hybrid 与配对 Full Context reference 比较；Full Context 无法 runtime execution 时，runner 构建 offline all-eligible reference。Report 保留 retrieval-selection token reduction 作为诊断指标，promotion 只使用 shared ContextBuilder projection 加入 protected entry、redaction、chunk overlap 与 packaging overhead 后的 final ContextPackage token reduction。Recall 和 No-Evidence degradation 必须以配对 Full Context result 为基线，不能假定基线为满分；缺少 large relevant 或 large No-Evidence sample 时不具备 promotion 资格。Parser atomic precision/recall 使用 exact normalized-text matching；priority per-class precision、recall、F1、support 与 Macro-F1 只对已匹配 atomic requirement 计算。QuickScreen 单独报告 exact-label accuracy 和 raw confusion counts，并与 production execution 共用同一个 policy-version constant。每个 metric 都包含 numerator/denominator 或 confusion count。Replay model output 仅限 evaluation，不得进入 Domain State，也不得调用 live provider。
 
 ### 9.4 Bounded Agentic RAG
 
@@ -374,7 +386,11 @@ Job Requirements
 → ContextPackage
 ```
 
-它记录输入版本、选择/排除原因、token estimate、redaction、policy/prompt version，禁止注入其他岗位材料、完整对话历史或整个 Career Vault。
+`context-builder-v1` 记录输入版本、选择/排除原因、redaction、逐 entry 与总 token estimate、packaging overhead、policy/prompt version。Requirement、task instruction、minimal workflow identity 和 provenance 属于 protected entry。Evidence 只有经过确定性 contact-data redaction 与精确 ownership validation 后，才按稳定 ranked prefix 接纳。当 protected entry 与 overhead 超过最终预算时返回 `CONTEXT_BUDGET_EXCEEDED`；绝不静默截断，也不注入其他 Job、完整对话历史或整个 Career Vault。
+
+ContextPackage 是 SQLite 持久化的 immutable lineage artifact，只包含为未来 model boundary 准备的 exact redacted representation，以及稳定 source ID、hash 与 version。完整有序 entry structure 以及 normalized Requirement、RetrievalRun、EvidenceVersion、EvidenceChunk association 必须与 runtime-validated payload 交叉验证。Hydration 会从 authoritative source row 重建 Requirement/Profile projection 与 Evidence chunk，重新应用 redaction，并核对 exact content、hash 和 token accounting；缺失 protected entry，或同时伪造 payload 与 normalized row，仍必须 fail closed。Raw prompt、model response、unredacted diagnostic snapshot 和 Chroma vector 都不是 ContextPackage state。RuntimeContextManager 的 compaction、externalization 与 rehydration 留给后续切片。
+
+`context-redaction-v1` 会在 token accounting 与 content hashing 之前，从每个 ContextPackage entry 中移除可识别 email address 与 phone number；其覆盖 protected Requirement/Profile/instruction/workflow projection，也覆盖 Evidence chunk。
 
 ### 10.2 Runtime Context Manager
 

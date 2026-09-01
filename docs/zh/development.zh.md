@@ -215,6 +215,9 @@ Fake model、domain、contract、workflow、repository、rendering invariants、
 ./scripts/dev            start local FastAPI and Vite
 ./scripts/check          all deterministic checks
 ./scripts/eval-replay    reproducible replay evaluation
+./scripts/semantic-check 在隔离 locked 环境验证 optional adapter
+./scripts/semantic-setup 显式获取并校验固定版本的本地 ONNX 模型
+./scripts/hybrid-eval    显式运行本地模型 synthetic Hybrid evaluation
 ./scripts/eval-live      explicit live evaluation; never implicit
 ```
 
@@ -225,12 +228,15 @@ Backend format check
 Backend lint
 Pyright strict
 Backend deterministic tests
+隔离 optional Chroma adapter format/type/persistence tests
 Frontend format/lint/typecheck
 Frontend deterministic tests/build
 Selected mock-backed Playwright E2E
 ```
 
 Pre-commit 只运行低延迟 formatter/linter。CI 运行与 `./scripts/check` 等价的 locked verification，不维护另一套命令。
+
+`semantic-setup` 永远不属于默认 setup 或 request handling。显式模型尚未安装时，`semantic-check` 会跳过真实 embedding-runtime assertion，但仍验证 locked Chroma packaging 和 persistent index 行为。本地 Hybrid quality report 必须先运行 `semantic-setup`；除非同一份合格、人工审阅的 Frozen Holdout 满足 Acceptance threshold，否则该报告不能触发 promotion。
 
 ## 14. Completion Checklist
 
