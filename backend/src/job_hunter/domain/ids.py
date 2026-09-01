@@ -61,6 +61,11 @@ class EvidenceVersionId(_StableId):
 
 
 @dataclass(frozen=True, slots=True)
+class EvidenceChunkId(_StableId):
+    """Stable identity of one deterministic derivative Evidence chunk."""
+
+
+@dataclass(frozen=True, slots=True)
 class RequirementId(_StableId):
     """Stable identity of one parsed atomic job requirement."""
 
@@ -78,3 +83,8 @@ class TriageDecisionId(_StableId):
 @dataclass(frozen=True, slots=True)
 class RetrievalRunId(_StableId):
     """Stable identity of one immutable Evidence retrieval run."""
+
+
+@dataclass(frozen=True, slots=True)
+class ContextPackageId(_StableId):
+    """Stable identity of one immutable, budgeted context package."""

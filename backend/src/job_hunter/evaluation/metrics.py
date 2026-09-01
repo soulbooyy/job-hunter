@@ -19,6 +19,8 @@ class RetrievalObservation:
     retrieved_ids: tuple[EvidenceItemId, ...]
     no_relevant_evidence: bool
     predicted_no_relevant_evidence: bool
+    eligible_estimated_tokens: int = 0
+    selected_estimated_tokens: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,6 +32,8 @@ class RetrievalMetrics:
     no_evidence_accuracy: float
     no_evidence_correct: int
     no_evidence_total: int
+    eligible_estimated_tokens: int
+    selected_estimated_tokens: int
 
 
 def evaluate_retrieval(
@@ -73,6 +77,8 @@ def evaluate_retrieval(
         ),
         no_evidence_correct=no_evidence_correct,
         no_evidence_total=no_evidence_total,
+        eligible_estimated_tokens=sum(item.eligible_estimated_tokens for item in observations),
+        selected_estimated_tokens=sum(item.selected_estimated_tokens for item in observations),
     )
 
 

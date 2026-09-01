@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+semantic_run=(uv run --isolated --locked --group chroma-spike)
+
+cd "${repository_root}/backend"
+"${semantic_run[@]}" ruff format --check src semantic_tests
+"${semantic_run[@]}" ruff check src semantic_tests
+"${semantic_run[@]}" pyright --project semantic_tests/pyrightconfig.json
+"${semantic_run[@]}" pytest semantic_tests

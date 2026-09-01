@@ -2,23 +2,22 @@
 
 import re
 
+from job_hunter.application.ports import EvidenceRetriever
+from job_hunter.domain.ids import EvidenceChunkId, EvidenceItemId
 from job_hunter.domain.knowledge import EvidenceItemVersion
 from job_hunter.domain.retrieval import (
+    TOKEN_ESTIMATOR_VERSION,
     RetrievalHit,
     RetrievalMatchReason,
     RetrievalQuery,
     RetrievalStatus,
     RetrievalStrategy,
     RetrieverResult,
+    estimate_tokens,
 )
+from job_hunter.errors import DependencyUnavailableError
 
-TOKEN_ESTIMATOR_VERSION = "deterministic-token-estimator-v1"
 _TOKEN_PATTERN = re.compile(r"\w+|[^\w\s]", re.UNICODE)
-
-
-def estimate_tokens(value: str) -> int:
-    """Return a versioned deterministic budget estimate, not a provider token claim."""
-    return len(_TOKEN_PATTERN.findall(value.casefold()))
 
 
 def _estimated_evidence_tokens(evidence: tuple[EvidenceItemVersion, ...]) -> int:
@@ -172,5 +171,104 @@ class LexicalMetadataRetriever:
             hits=hits,
             eligible_count=len(evidence),
             eligible_estimated_tokens=eligible_estimated_tokens,
+            selected_estimated_tokens=selected_estimated_tokens,
+        )
+
+
+class HybridRetriever:
+    """Fuse lexical and semantic ranks without trusting either score scale."""
+
+    _rrf_constant = 60
+
+    def __init__(self, *, lexical: EvidenceRetriever, semantic: EvidenceRetriever) -> None:
+        if lexical.strategy is not RetrievalStrategy.LEXICAL_METADATA:
+            raise ValueError("Hybrid lexical retriever has the wrong strategy")
+        if semantic.strategy is not RetrievalStrategy.SEMANTIC:
+            raise ValueError("Hybrid semantic retriever has the wrong strategy")
+        self._lexical = lexical
+        self._semantic = semantic
+
+    @property
+    def strategy(self) -> RetrievalStrategy:
+        return RetrievalStrategy.HYBRID
+
+    @property
+    def version(self) -> str:
+        return "hybrid-rrf-v1"
+
+    @property
+    def token_estimator_version(self) -> str:
+        return TOKEN_ESTIMATOR_VERSION
+
+    def retrieve(
+        self,
+        query: RetrievalQuery,
+        evidence: tuple[EvidenceItemVersion, ...],
+    ) -> RetrieverResult:
+        source_results = (
+            self._lexical.retrieve(query, evidence),
+            self._semantic.retrieve(query, evidence),
+        )
+        by_id = {item.evidence_id: item for item in evidence}
+        scores: dict[EvidenceItemId, float] = {}
+        reasons: dict[EvidenceItemId, list[RetrievalMatchReason]] = {}
+        chunks: dict[EvidenceItemId, list[EvidenceChunkId]] = {}
+        for result in source_results:
+            if result.eligible_count != len(evidence) or any(
+                hit.evidence_id not in by_id
+                or by_id[hit.evidence_id].version_id != hit.evidence_version_id
+                for hit in result.hits
+            ):
+                raise DependencyUnavailableError("Hybrid source retriever returned invalid lineage")
+            for hit in result.hits:
+                scores[hit.evidence_id] = scores.get(hit.evidence_id, 0.0) + 1.0 / (
+                    self._rrf_constant + hit.rank
+                )
+                accumulated = reasons.setdefault(hit.evidence_id, [])
+                for reason in hit.reasons:
+                    if reason not in accumulated:
+                        accumulated.append(reason)
+                accumulated_chunks = chunks.setdefault(hit.evidence_id, [])
+                for chunk_id in hit.evidence_chunk_ids:
+                    if chunk_id not in accumulated_chunks:
+                        accumulated_chunks.append(chunk_id)
+        ordered_ids = sorted(
+            scores,
+            key=lambda evidence_id: (
+                -scores[evidence_id],
+                str(evidence_id),
+                str(by_id[evidence_id].version_id),
+            ),
+        )
+        selected_ids: list[EvidenceItemId] = []
+        selected_estimated_tokens = 0
+        for evidence_id in ordered_ids[: query.top_k]:
+            candidate_tokens = estimate_tokens(by_id[evidence_id].canonical_content)
+            if selected_estimated_tokens + candidate_tokens > query.max_tokens:
+                break
+            selected_ids.append(evidence_id)
+            selected_estimated_tokens += candidate_tokens
+        hits = tuple(
+            RetrievalHit(
+                evidence_id=evidence_id,
+                evidence_version_id=by_id[evidence_id].version_id,
+                rank=rank,
+                score=scores[evidence_id],
+                reasons=tuple((*reasons[evidence_id], RetrievalMatchReason.HYBRID_FUSION)),
+                evidence_chunk_ids=tuple(chunks.get(evidence_id, [])),
+            )
+            for rank, evidence_id in enumerate(selected_ids, start=1)
+        )
+        if hits:
+            status = RetrievalStatus.COMPLETED
+        elif ordered_ids:
+            status = RetrievalStatus.NOT_EXECUTABLE
+        else:
+            status = RetrievalStatus.NO_RELEVANT_EVIDENCE
+        return RetrieverResult(
+            status=status,
+            hits=hits,
+            eligible_count=len(evidence),
+            eligible_estimated_tokens=_estimated_evidence_tokens(evidence),
             selected_estimated_tokens=selected_estimated_tokens,
         )

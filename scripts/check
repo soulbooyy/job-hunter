@@ -9,6 +9,8 @@ uv run --locked --no-sync ruff check src tests migrations
 uv run --locked --no-sync pyright
 uv run --locked --no-sync pytest
 
+"${repository_root}/scripts/semantic-check"
+
 "${repository_root}/scripts/db-check"
 
 cd "${repository_root}/frontend"

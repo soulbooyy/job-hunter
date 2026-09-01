@@ -1,0 +1,156 @@
+{
+  "dataset_version": "hybrid-synthetic-v1",
+  "annotation_version": "annotation-v1",
+  "split": "synthetic",
+  "smoke_fixture": false,
+  "satisfies_minimum_dataset_gate": true,
+  "retrieval_case_count": 20,
+  "parser_case_count": 0,
+  "quick_screen_case_count": 0,
+  "eligibility_policy_version": "evidence-eligibility-v1",
+  "retrieval": [
+    {
+      "strategy": "full_context",
+      "retriever_version": "full-context-v1",
+      "token_estimator_version": "deterministic-token-estimator-v1",
+      "recall_at_5": 1.0,
+      "recall_case_count": 20,
+      "direct_mrr": 0.25,
+      "direct_case_count": 20,
+      "no_evidence_accuracy": 0.0,
+      "no_evidence_correct": 0,
+      "no_evidence_total": 0,
+      "eligible_estimated_tokens": 902,
+      "selected_estimated_tokens": 902
+    },
+    {
+      "strategy": "lexical_metadata",
+      "retriever_version": "lexical-metadata-v1",
+      "token_estimator_version": "deterministic-token-estimator-v1",
+      "recall_at_5": 0.1,
+      "recall_case_count": 20,
+      "direct_mrr": 0.075,
+      "direct_case_count": 20,
+      "no_evidence_accuracy": 0.0,
+      "no_evidence_correct": 0,
+      "no_evidence_total": 0,
+      "eligible_estimated_tokens": 902,
+      "selected_estimated_tokens": 92
+    },
+    {
+      "strategy": "hybrid",
+      "retriever_version": "hybrid-rrf-v1",
+      "token_estimator_version": "deterministic-token-estimator-v1",
+      "recall_at_5": 0.9,
+      "recall_case_count": 20,
+      "direct_mrr": 0.825,
+      "direct_case_count": 20,
+      "no_evidence_accuracy": 0.0,
+      "no_evidence_correct": 0,
+      "no_evidence_total": 0,
+      "eligible_estimated_tokens": 902,
+      "selected_estimated_tokens": 288
+    }
+  ],
+  "parser": {
+    "parser_name": "deterministic-line-parser",
+    "parser_version": "1",
+    "atomic_precision": 0.0,
+    "atomic_recall": 0.0,
+    "true_positive": 0,
+    "false_positive": 0,
+    "false_negative": 0,
+    "priority_macro_f1": 0.0,
+    "priority_confusion": {
+      "required": {
+        "required": 0,
+        "preferred": 0,
+        "unspecified": 0
+      },
+      "preferred": {
+        "required": 0,
+        "preferred": 0,
+        "unspecified": 0
+      },
+      "unspecified": {
+        "required": 0,
+        "preferred": 0,
+        "unspecified": 0
+      }
+    },
+    "priority_per_class": {
+      "required": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 0
+      },
+      "preferred": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 0
+      },
+      "unspecified": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 0
+      }
+    }
+  },
+  "quick_screen": {
+    "policy_version": "quick-screen-v1",
+    "accuracy": 0.0,
+    "correct": 0,
+    "total": 0,
+    "confusion": {
+      "screen_in": {
+        "screen_in": 0,
+        "screen_out": 0,
+        "uncertain": 0
+      },
+      "screen_out": {
+        "screen_in": 0,
+        "screen_out": 0,
+        "uncertain": 0
+      },
+      "uncertain": {
+        "screen_in": 0,
+        "screen_out": 0,
+        "uncertain": 0
+      }
+    }
+  },
+  "limitation": "Synthetic fixtures verify retrieval mechanics only; they are not a human-reviewed Frozen Holdout, do not complete AC-DATA-001, and do not support product-quality claims.",
+  "hybrid_promotion": {
+    "policy_version": "retrieval-policy-v1",
+    "dataset_eligible": false,
+    "thresholds_met": false,
+    "promoted": false,
+    "recall_at_5_target": 0.85,
+    "direct_mrr_target": 0.7,
+    "no_evidence_accuracy_target": 0.9,
+    "retrieval_selection_token_reduction": 0.6807095343680709,
+    "final_context_token_reduction": null,
+    "large_context_case_count": 0,
+    "large_context_relevant_case_count": 0,
+    "large_context_no_evidence_count": 0,
+    "full_context_final_tokens": 0,
+    "hybrid_final_tokens": 0,
+    "full_context_reference_version": "paired-full-context-package-v1",
+    "context_builder_version": "context-builder-v1",
+    "redaction_policy_version": "context-redaction-v1",
+    "context_projection_version": "evaluation-context-projection-v1",
+    "large_context_threshold_tokens": 1200,
+    "packaging_overhead_tokens": 3,
+    "recall_degradation": null,
+    "no_evidence_degradation": null,
+    "reasons": [
+      "dataset_is_not_an_eligible_human-reviewed_frozen_holdout",
+      "no_large_eligible_context_cases",
+      "no_large_eligible_context_no-evidence_cases",
+      "one_or_more_AC-RAG_promotion_thresholds_are_unmet"
+    ]
+  }
+}

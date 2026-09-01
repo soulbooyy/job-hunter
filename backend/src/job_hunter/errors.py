@@ -35,3 +35,17 @@ class DependencyUnavailableError(JobHunterError):
     """A boundary dependency failed without exposing its raw exception."""
 
     code = "dependency_unavailable"
+
+
+class SemanticUnavailableError(DependencyUnavailableError):
+    """The optional semantic runtime is unavailable and policy may fall back."""
+
+
+class SemanticIndexIntegrityError(DependencyUnavailableError):
+    """The derivative semantic index violates frozen identity or metadata contracts."""
+
+
+class ContextBudgetExceededError(JobHunterError):
+    """Protected context plus packaging overhead exceeds the hard final budget."""
+
+    code = "context_budget_exceeded"

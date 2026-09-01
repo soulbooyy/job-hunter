@@ -4,13 +4,16 @@ from dataclasses import dataclass
 
 from job_hunter.application.ports import (
     CandidateKnowledgeRepository,
+    ContextRepository,
     JobRepository,
     RetrievalRepository,
     ScreeningRepository,
     UnitOfWork,
 )
+from job_hunter.domain.context import ContextPackage
 from job_hunter.domain.ids import (
     CandidateProfileId,
+    ContextPackageId,
     EvidenceItemId,
     EvidenceVersionId,
     JobId,
@@ -45,6 +48,8 @@ class _MemoryState:
     triage_ids_by_job: dict[JobId, tuple[TriageDecisionId, ...]]
     retrieval_runs: dict[RetrievalRunId, RetrievalRun]
     retrieval_run_ids_by_requirement: dict[RequirementId, tuple[RetrievalRunId, ...]]
+    context_packages: dict[ContextPackageId, ContextPackage]
+    context_package_ids_by_retrieval: dict[RetrievalRunId, tuple[ContextPackageId, ...]]
 
     def copy(self) -> "_MemoryState":
         # Frozen domain values make shallow copies sufficient. Copying every index
@@ -65,6 +70,8 @@ class _MemoryState:
             triage_ids_by_job=dict(self.triage_ids_by_job),
             retrieval_runs=dict(self.retrieval_runs),
             retrieval_run_ids_by_requirement=dict(self.retrieval_run_ids_by_requirement),
+            context_packages=dict(self.context_packages),
+            context_package_ids_by_retrieval=dict(self.context_package_ids_by_retrieval),
         )
 
 
@@ -85,6 +92,8 @@ def _empty_state() -> _MemoryState:
         triage_ids_by_job={},
         retrieval_runs={},
         retrieval_run_ids_by_requirement={},
+        context_packages={},
+        context_package_ids_by_retrieval={},
     )
 
 
@@ -131,6 +140,12 @@ class InMemoryStore:
     def list_retrieval_runs(self, requirement_id: RequirementId) -> tuple[RetrievalRun, ...]:
         return _InMemoryRetrievalRepository(self._state).list_runs(requirement_id)
 
+    def get_context_package(self, context_package_id: ContextPackageId) -> ContextPackage:
+        return _InMemoryContextRepository(self._state).get_package(context_package_id)
+
+    def list_context_packages(self, retrieval_run_id: RetrievalRunId) -> tuple[ContextPackage, ...]:
+        return _InMemoryContextRepository(self._state).list_packages(retrieval_run_id)
+
     def is_empty(self) -> bool:
         state = self._state
         return not any(
@@ -145,6 +160,7 @@ class InMemoryStore:
                 state.screen_results,
                 state.triage_records,
                 state.retrieval_runs,
+                state.context_packages,
             )
         )
 
@@ -350,6 +366,31 @@ class _InMemoryRetrievalRepository(RetrievalRepository):
         )
 
 
+class _InMemoryContextRepository(ContextRepository):
+    def __init__(self, state: _MemoryState) -> None:
+        self._state = state
+
+    def get_package(self, context_package_id: ContextPackageId) -> ContextPackage:
+        try:
+            return self._state.context_packages[context_package_id]
+        except KeyError:
+            raise EntityNotFoundError(f"context package not found: {context_package_id}") from None
+
+    def list_packages(self, retrieval_run_id: RetrievalRunId) -> tuple[ContextPackage, ...]:
+        package_ids = self._state.context_package_ids_by_retrieval.get(retrieval_run_id, ())
+        return tuple(self._state.context_packages[item] for item in package_ids)
+
+    def add_package(self, package: ContextPackage) -> None:
+        if package.context_package_id in self._state.context_packages:
+            raise ConflictError(f"context package already exists: {package.context_package_id}")
+        self._state.context_packages[package.context_package_id] = package
+        existing = self._state.context_package_ids_by_retrieval.get(package.retrieval_run_id, ())
+        self._state.context_package_ids_by_retrieval[package.retrieval_run_id] = (
+            *existing,
+            package.context_package_id,
+        )
+
+
 class _InMemoryUnitOfWork(UnitOfWork):
     def __init__(self, store: InMemoryStore) -> None:
         self._store = store
@@ -358,6 +399,7 @@ class _InMemoryUnitOfWork(UnitOfWork):
         self._knowledge = _InMemoryCandidateKnowledgeRepository(self._state)
         self._screening = _InMemoryScreeningRepository(self._state)
         self._retrieval = _InMemoryRetrievalRepository(self._state)
+        self._context = _InMemoryContextRepository(self._state)
 
     @property
     def jobs(self) -> JobRepository:
@@ -374,6 +416,10 @@ class _InMemoryUnitOfWork(UnitOfWork):
     @property
     def retrieval(self) -> RetrievalRepository:
         return self._retrieval
+
+    @property
+    def context(self) -> ContextRepository:
+        return self._context
 
     def commit(self) -> None:
         # All aggregate and lineage indexes move together; this is atomic only for a

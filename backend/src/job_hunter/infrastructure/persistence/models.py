@@ -184,7 +184,71 @@ class RetrievalRunRow(Base):
         ForeignKey("job_versions.version_id"), nullable=False
     )
     created_at: Mapped[str] = mapped_column(Text, nullable=False)
+    strategy: Mapped[str] = mapped_column(Text, nullable=False)
+    policy_version: Mapped[str | None] = mapped_column(Text, nullable=True)
+    initial_strategy: Mapped[str | None] = mapped_column(Text, nullable=True)
+    decision_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    fallback_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    promotion_dataset_version: Mapped[str | None] = mapped_column(Text, nullable=True)
+    semantic_ready: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    index_version: Mapped[str | None] = mapped_column(Text, nullable=True)
+    embedding_provider_version: Mapped[str | None] = mapped_column(Text, nullable=True)
+    chunk_policy_version: Mapped[str | None] = mapped_column(Text, nullable=True)
+    query_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     payload: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class ContextPackageRow(Base):
+    __tablename__ = "context_packages"
+    __table_args__ = (
+        Index(
+            "ux_context_packages_package_version",
+            "context_package_id",
+            "job_version_id",
+            unique=True,
+        ),
+        Index(
+            "ux_context_packages_package_retrieval",
+            "context_package_id",
+            "retrieval_run_id",
+            unique=True,
+        ),
+    )
+
+    sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    context_package_id: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    job_version_id: Mapped[str] = mapped_column(
+        ForeignKey("job_versions.version_id"), nullable=False
+    )
+    retrieval_run_id: Mapped[str] = mapped_column(
+        ForeignKey("retrieval_runs.retrieval_run_id"), nullable=False, index=True
+    )
+    candidate_profile_id: Mapped[str] = mapped_column(
+        ForeignKey("candidate_profiles.profile_id"), nullable=False
+    )
+    created_at: Mapped[str] = mapped_column(Text, nullable=False)
+    payload: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class ContextPackageEntryRow(Base):
+    __tablename__ = "context_package_entries"
+    __table_args__ = (UniqueConstraint("context_package_id", "ordinal"),)
+
+    association_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    context_package_id: Mapped[str] = mapped_column(
+        ForeignKey("context_packages.context_package_id"), nullable=False, index=True
+    )
+    ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
+    kind: Mapped[str] = mapped_column(Text, nullable=False)
+    content_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    estimated_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
+    protected: Mapped[int] = mapped_column(Integer, nullable=False)
+    redaction: Mapped[str] = mapped_column(Text, nullable=False)
+    inclusion_reason: Mapped[str] = mapped_column(Text, nullable=False)
+    requirement_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    evidence_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    evidence_version_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    evidence_chunk_id: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class QuickScreenRequirementRow(Base):
@@ -246,4 +310,117 @@ class RetrievalRunExclusionRow(Base):
     )
     evidence_id: Mapped[str] = mapped_column(Text, nullable=False)
     evidence_version_id: Mapped[str] = mapped_column(Text, nullable=False)
+    ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class RetrievalRunHitChunkRow(Base):
+    __tablename__ = "retrieval_run_hit_chunks"
+    __table_args__ = (
+        UniqueConstraint("retrieval_run_id", "evidence_chunk_id"),
+        UniqueConstraint("retrieval_run_id", "ordinal"),
+        ForeignKeyConstraint(
+            ("retrieval_run_id", "evidence_version_id"),
+            ("retrieval_run_hits.retrieval_run_id", "retrieval_run_hits.evidence_version_id"),
+        ),
+    )
+
+    association_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    retrieval_run_id: Mapped[str] = mapped_column(Text, nullable=False, index=True)
+    evidence_version_id: Mapped[str] = mapped_column(Text, nullable=False)
+    evidence_chunk_id: Mapped[str] = mapped_column(Text, nullable=False)
+    ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class ContextPackageRequirementRow(Base):
+    __tablename__ = "context_package_requirements"
+    __table_args__ = (
+        UniqueConstraint("context_package_id", "ordinal"),
+        UniqueConstraint("context_package_id", "requirement_id"),
+        ForeignKeyConstraint(
+            ("context_package_id", "job_version_id"),
+            ("context_packages.context_package_id", "context_packages.job_version_id"),
+        ),
+        ForeignKeyConstraint(
+            ("requirement_id", "job_version_id"),
+            ("parsed_requirements.requirement_id", "parsed_requirements.job_version_id"),
+        ),
+    )
+
+    association_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    context_package_id: Mapped[str] = mapped_column(Text, nullable=False, index=True)
+    job_version_id: Mapped[str] = mapped_column(Text, nullable=False)
+    requirement_id: Mapped[str] = mapped_column(Text, nullable=False)
+    ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class ContextPackageEvidenceRow(Base):
+    __tablename__ = "context_package_evidence"
+    __table_args__ = (
+        UniqueConstraint("context_package_id", "ordinal"),
+        UniqueConstraint("context_package_id", "evidence_chunk_id"),
+        ForeignKeyConstraint(
+            ("context_package_id", "retrieval_run_id"),
+            ("context_packages.context_package_id", "context_packages.retrieval_run_id"),
+        ),
+        ForeignKeyConstraint(
+            ("context_package_id", "requirement_id"),
+            (
+                "context_package_requirements.context_package_id",
+                "context_package_requirements.requirement_id",
+            ),
+        ),
+        ForeignKeyConstraint(
+            ("retrieval_run_id", "evidence_version_id"),
+            ("retrieval_run_hits.retrieval_run_id", "retrieval_run_hits.evidence_version_id"),
+        ),
+        ForeignKeyConstraint(
+            ("evidence_version_id", "evidence_id"),
+            ("evidence_versions.version_id", "evidence_versions.evidence_id"),
+        ),
+    )
+
+    association_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    context_package_id: Mapped[str] = mapped_column(Text, nullable=False, index=True)
+    retrieval_run_id: Mapped[str] = mapped_column(Text, nullable=False)
+    requirement_id: Mapped[str] = mapped_column(Text, nullable=False)
+    evidence_id: Mapped[str] = mapped_column(Text, nullable=False)
+    evidence_version_id: Mapped[str] = mapped_column(Text, nullable=False)
+    evidence_chunk_id: Mapped[str] = mapped_column(Text, nullable=False)
+    ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class ContextPackageExclusionRow(Base):
+    __tablename__ = "context_package_exclusions"
+    __table_args__ = (
+        UniqueConstraint("context_package_id", "ordinal"),
+        UniqueConstraint("context_package_id", "evidence_chunk_id"),
+        ForeignKeyConstraint(
+            ("context_package_id", "retrieval_run_id"),
+            ("context_packages.context_package_id", "context_packages.retrieval_run_id"),
+        ),
+        ForeignKeyConstraint(
+            ("context_package_id", "requirement_id"),
+            (
+                "context_package_requirements.context_package_id",
+                "context_package_requirements.requirement_id",
+            ),
+        ),
+        ForeignKeyConstraint(
+            ("retrieval_run_id", "evidence_version_id"),
+            ("retrieval_run_hits.retrieval_run_id", "retrieval_run_hits.evidence_version_id"),
+        ),
+        ForeignKeyConstraint(
+            ("evidence_version_id", "evidence_id"),
+            ("evidence_versions.version_id", "evidence_versions.evidence_id"),
+        ),
+    )
+
+    association_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    context_package_id: Mapped[str] = mapped_column(Text, nullable=False, index=True)
+    retrieval_run_id: Mapped[str] = mapped_column(Text, nullable=False)
+    requirement_id: Mapped[str] = mapped_column(Text, nullable=False)
+    evidence_id: Mapped[str] = mapped_column(Text, nullable=False)
+    evidence_version_id: Mapped[str] = mapped_column(Text, nullable=False)
+    evidence_chunk_id: Mapped[str] = mapped_column(Text, nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
     ordinal: Mapped[int] = mapped_column(Integer, nullable=False)

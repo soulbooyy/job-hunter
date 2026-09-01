@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+cd "${repository_root}/backend"
+uv run --isolated --locked --group chroma-spike \
+  python -m job_hunter.evaluation.semantic_cli \
+  --dataset "${repository_root}/evals/datasets/hybrid-synthetic-v1.json" \
+  --output "${repository_root}/evals/reports/hybrid-synthetic-v1.json"

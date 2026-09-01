@@ -9,6 +9,7 @@ from job_hunter.application.screening import RecordJobTriage, RunQuickScreen
 from job_hunter.application.workspace_queries import WorkspaceQueries
 from job_hunter.domain.ids import (
     CandidateProfileId,
+    ContextPackageId,
     EvidenceItemId,
     EvidenceVersionId,
     JobId,
@@ -77,6 +78,9 @@ class DeterministicIdGenerator:
 
     def new_retrieval_run_id(self) -> RetrievalRunId:
         return RetrievalRunId(self._next("retrieval-run"))
+
+    def new_context_package_id(self) -> ContextPackageId:
+        return ContextPackageId(self._next("context-package"))
 
 
 def build_test_use_cases(

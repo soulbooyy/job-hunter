@@ -5,6 +5,7 @@ from uuid import uuid4
 
 from job_hunter.domain.ids import (
     CandidateProfileId,
+    ContextPackageId,
     EvidenceItemId,
     EvidenceVersionId,
     JobId,
@@ -56,3 +57,6 @@ class UuidIdGenerator:
 
     def new_retrieval_run_id(self) -> RetrievalRunId:
         return RetrievalRunId(f"retrieval-run-{uuid4().hex}")
+
+    def new_context_package_id(self) -> ContextPackageId:
+        return ContextPackageId(f"context-package-{uuid4().hex}")

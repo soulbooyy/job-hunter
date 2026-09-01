@@ -1,0 +1,7 @@
+{
+  "extends": "../pyproject.toml",
+  "include": ["../src", "."],
+  "exclude": ["../.venv", "../.pytest_cache", "../.ruff_cache"],
+  "venvPath": "..",
+  "venv": ".venv"
+}

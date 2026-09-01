@@ -1,3 +1,4 @@
+import hashlib
 import json
 import sqlite3
 from dataclasses import replace
@@ -10,6 +11,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 
 from job_hunter.api.app import create_app
+from job_hunter.application.context import BuildContextPackage, BuildContextPackageCommand
 from job_hunter.application.retrieval import RetrieveEvidence, RetrieveEvidenceCommand
 from job_hunter.config import RuntimeSettings
 from job_hunter.domain.ids import (
@@ -151,6 +153,12 @@ def test_empty_database_upgrades_to_current_head_idempotently(tmp_path: Path) ->
             "quick_screen_requirements",
             "retrieval_run_hits",
             "retrieval_run_exclusions",
+            "retrieval_run_hit_chunks",
+            "context_packages",
+            "context_package_entries",
+            "context_package_requirements",
+            "context_package_evidence",
+            "context_package_exclusions",
         }
     finally:
         runtime.dispose()
@@ -233,6 +241,61 @@ def test_workspace_survives_application_lifespan_restart(tmp_path: Path) -> None
                 run_id=RunId("run-retrieval"),
             )
         )
+        context_builder = BuildContextPackage(
+            unit_of_work_factory=SqlAlchemyUnitOfWorkFactory(database.session_factory),
+            clock=FixedClock(NOW),
+            id_generator=DeterministicIdGenerator(),
+        )
+        context = context_builder.execute(
+            BuildContextPackageCommand(
+                retrieval_run_id=retrieval.retrieval_run_id,
+                task_instruction="Assess only evidence-grounded fit.",
+                workflow_identity="deep-fit-analysis",
+                max_tokens=200,
+                correlation_id=CorrelationId("correlation-context"),
+                run_id=RunId("run-context"),
+            )
+        )
+        excluded_context = context_builder.execute(
+            BuildContextPackageCommand(
+                retrieval_run_id=retrieval.retrieval_run_id,
+                task_instruction="Assess only evidence-grounded fit.",
+                workflow_identity="deep-fit-analysis",
+                max_tokens=36,
+                correlation_id=CorrelationId("correlation-context-excluded"),
+                run_id=RunId("run-context-excluded"),
+            )
+        )
+        evidence_content_context = context_builder.execute(
+            BuildContextPackageCommand(
+                retrieval_run_id=retrieval.retrieval_run_id,
+                task_instruction="Assess only evidence-grounded fit.",
+                workflow_identity="deep-fit-analysis",
+                max_tokens=200,
+                correlation_id=CorrelationId("correlation-context-evidence-content"),
+                run_id=RunId("run-context-evidence-content"),
+            )
+        )
+        profile_content_context = context_builder.execute(
+            BuildContextPackageCommand(
+                retrieval_run_id=retrieval.retrieval_run_id,
+                task_instruction="Assess only evidence-grounded fit.",
+                workflow_identity="deep-fit-analysis",
+                max_tokens=200,
+                correlation_id=CorrelationId("correlation-context-profile-content"),
+                run_id=RunId("run-context-profile-content"),
+            )
+        )
+        missing_requirement_context = context_builder.execute(
+            BuildContextPackageCommand(
+                retrieval_run_id=retrieval.retrieval_run_id,
+                task_instruction="Assess only evidence-grounded fit.",
+                workflow_identity="deep-fit-analysis",
+                max_tokens=200,
+                correlation_id=CorrelationId("correlation-context-missing-requirement"),
+                run_id=RunId("run-context-missing-requirement"),
+            )
+        )
 
     with TestClient(create_app(settings=settings)) as second:
         jobs = second.get("/api/v1/jobs")
@@ -265,8 +328,175 @@ def test_workspace_survives_application_lifespan_restart(tmp_path: Path) -> None
         assert str(stored_run.hits[0].evidence_version_id) == evidence.json()["active_version_id"]
         assert stored_run.correlation_id == CorrelationId("correlation-retrieval")
         assert stored_run.run_id == RunId("run-retrieval")
+        stored_context = verification.context.get_package(context.context_package_id)
+        assert stored_context.retrieval_run_id == retrieval.retrieval_run_id
+        assert stored_context.correlation_id == CorrelationId("correlation-context")
+        assert stored_context.total_estimated_tokens <= stored_context.max_tokens
+        stored_excluded_context = verification.context.get_package(
+            excluded_context.context_package_id
+        )
+        assert len(stored_excluded_context.exclusions) == 1
+        assert all(entry.kind.value != "evidence" for entry in stored_excluded_context.entries)
     finally:
         verification.close()
+
+    with reopened.engine.begin() as connection:
+        context_payload = connection.execute(
+            text(
+                "SELECT payload FROM context_packages "
+                "WHERE context_package_id = :context_package_id"
+            ),
+            {"context_package_id": str(context.context_package_id)},
+        ).scalar_one()
+        assert isinstance(context_payload, str)
+        malformed_context = cast(dict[str, object], json.loads(context_payload))
+        entries = cast(list[dict[str, object]], malformed_context["entries"])
+        evidence_entry = next(entry for entry in entries if entry["kind"] == "evidence")
+        evidence_entry["evidence_chunk_id"] = {"value": "chunk-corrupt"}
+        connection.execute(
+            text(
+                "UPDATE context_package_evidence SET evidence_chunk_id = :chunk_id "
+                "WHERE context_package_id = :context_package_id"
+            ),
+            {
+                "chunk_id": "chunk-corrupt",
+                "context_package_id": str(context.context_package_id),
+            },
+        )
+        connection.execute(
+            text(
+                "UPDATE context_packages SET payload = :payload "
+                "WHERE context_package_id = :context_package_id"
+            ),
+            {
+                "payload": json.dumps(malformed_context),
+                "context_package_id": str(context.context_package_id),
+            },
+        )
+    corrupted = SqlAlchemyUnitOfWorkFactory(reopened.session_factory)()
+    try:
+        with pytest.raises(DependencyUnavailableError, match="persisted state is invalid"):
+            corrupted.context.get_package(context.context_package_id)
+    finally:
+        corrupted.close()
+
+    for package_id, kind in (
+        (evidence_content_context.context_package_id, "evidence"),
+        (profile_content_context.context_package_id, "profile"),
+    ):
+        fabricated_content = f"fabricated {kind} candidate fact"
+        fabricated_hash = hashlib.sha256(fabricated_content.encode()).hexdigest()
+        with reopened.engine.begin() as connection:
+            payload = connection.execute(
+                text(
+                    "SELECT payload FROM context_packages "
+                    "WHERE context_package_id = :context_package_id"
+                ),
+                {"context_package_id": str(package_id)},
+            ).scalar_one()
+            assert isinstance(payload, str)
+            malformed = cast(dict[str, object], json.loads(payload))
+            malformed_entries = cast(list[dict[str, object]], malformed["entries"])
+            target = next(entry for entry in malformed_entries if entry["kind"] == kind)
+            original_tokens = cast(int, target["estimated_tokens"])
+            target["content"] = fabricated_content
+            target["content_hash"] = fabricated_hash
+            target["estimated_tokens"] = 4
+            malformed["total_estimated_tokens"] = (
+                cast(int, malformed["total_estimated_tokens"]) - original_tokens + 4
+            )
+            connection.execute(
+                text(
+                    "UPDATE context_package_entries "
+                    "SET content_hash = :content_hash, estimated_tokens = 4 "
+                    "WHERE context_package_id = :context_package_id AND kind = :kind"
+                ),
+                {
+                    "content_hash": fabricated_hash,
+                    "context_package_id": str(package_id),
+                    "kind": kind,
+                },
+            )
+            connection.execute(
+                text(
+                    "UPDATE context_packages SET payload = :payload "
+                    "WHERE context_package_id = :context_package_id"
+                ),
+                {
+                    "payload": json.dumps(malformed),
+                    "context_package_id": str(package_id),
+                },
+            )
+        corrupted_content = SqlAlchemyUnitOfWorkFactory(reopened.session_factory)()
+        try:
+            with pytest.raises(DependencyUnavailableError, match="persisted state is invalid"):
+                corrupted_content.context.get_package(package_id)
+        finally:
+            corrupted_content.close()
+
+    with reopened.engine.begin() as connection:
+        payload = connection.execute(
+            text(
+                "SELECT payload FROM context_packages "
+                "WHERE context_package_id = :context_package_id"
+            ),
+            {"context_package_id": str(missing_requirement_context.context_package_id)},
+        ).scalar_one()
+        assert isinstance(payload, str)
+        malformed = cast(dict[str, object], json.loads(payload))
+        malformed_entries = cast(list[dict[str, object]], malformed["entries"])
+        requirement_entry = next(
+            entry for entry in malformed_entries if entry["kind"] == "requirement"
+        )
+        malformed["entries"] = [
+            entry for entry in malformed_entries if entry is not requirement_entry
+        ]
+        malformed["total_estimated_tokens"] = cast(int, malformed["total_estimated_tokens"]) - cast(
+            int, requirement_entry["estimated_tokens"]
+        )
+        connection.execute(
+            text(
+                "DELETE FROM context_package_entries "
+                "WHERE context_package_id = :context_package_id AND kind = 'requirement'"
+            ),
+            {"context_package_id": str(missing_requirement_context.context_package_id)},
+        )
+        connection.execute(
+            text(
+                "UPDATE context_packages SET payload = :payload "
+                "WHERE context_package_id = :context_package_id"
+            ),
+            {
+                "payload": json.dumps(malformed),
+                "context_package_id": str(missing_requirement_context.context_package_id),
+            },
+        )
+    missing_protected_entry = SqlAlchemyUnitOfWorkFactory(reopened.session_factory)()
+    try:
+        with pytest.raises(DependencyUnavailableError, match="persisted state is invalid"):
+            missing_protected_entry.context.get_package(
+                missing_requirement_context.context_package_id
+            )
+    finally:
+        missing_protected_entry.close()
+
+    with reopened.engine.begin() as connection:
+        connection.execute(
+            text(
+                "UPDATE context_package_exclusions SET reason = :reason "
+                "WHERE context_package_id = :context_package_id"
+            ),
+            {
+                "reason": "corrupt-reason",
+                "context_package_id": str(excluded_context.context_package_id),
+            },
+        )
+    corrupted_exclusion = SqlAlchemyUnitOfWorkFactory(reopened.session_factory)()
+    try:
+        with pytest.raises(DependencyUnavailableError, match="persisted state is invalid"):
+            corrupted_exclusion.context.get_package(excluded_context.context_package_id)
+    finally:
+        corrupted_exclusion.close()
         reopened.dispose()
 
 

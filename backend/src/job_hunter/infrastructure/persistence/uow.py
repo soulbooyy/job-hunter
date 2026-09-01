@@ -8,6 +8,7 @@ from sqlalchemy.orm.exc import StaleDataError
 
 from job_hunter.application.ports import (
     CandidateKnowledgeRepository,
+    ContextRepository,
     JobRepository,
     RetrievalRepository,
     ScreeningRepository,
@@ -16,6 +17,7 @@ from job_hunter.application.ports import (
 from job_hunter.errors import ConflictError, DependencyUnavailableError, StaleWriteError
 from job_hunter.infrastructure.persistence.repositories import (
     SqlAlchemyCandidateKnowledgeRepository,
+    SqlAlchemyContextRepository,
     SqlAlchemyJobRepository,
     SqlAlchemyRetrievalRepository,
     SqlAlchemyScreeningRepository,
@@ -36,6 +38,7 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
         self._knowledge = SqlAlchemyCandidateKnowledgeRepository(session)
         self._screening = SqlAlchemyScreeningRepository(session)
         self._retrieval = SqlAlchemyRetrievalRepository(session)
+        self._context = SqlAlchemyContextRepository(session)
         self._closed = False
 
     @property
@@ -53,6 +56,10 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
     @property
     def retrieval(self) -> RetrievalRepository:
         return self._retrieval
+
+    @property
+    def context(self) -> ContextRepository:
+        return self._context
 
     def commit(self) -> None:
         try:

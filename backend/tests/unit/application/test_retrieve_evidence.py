@@ -10,9 +10,14 @@ from job_hunter.application.candidate_knowledge import (
     SaveEvidence,
     SaveEvidenceCommand,
 )
+from job_hunter.application.context import (
+    BuildContextPackage,
+    BuildContextPackageCommand,
+)
 from job_hunter.application.import_job import ImportJob, ImportJobCommand
 from job_hunter.application.ports import (
     CandidateKnowledgeRepository,
+    ContextRepository,
     JobRepository,
     RetrievalRepository,
     ScreeningRepository,
@@ -25,8 +30,10 @@ from job_hunter.application.screening import (
     RunQuickScreen,
     RunQuickScreenCommand,
 )
+from job_hunter.domain.context import ContextEntryKind, ContextRedaction
 from job_hunter.domain.ids import (
     CorrelationId,
+    EvidenceChunkId,
     EvidenceItemId,
     EvidenceVersionId,
     JobId,
@@ -42,18 +49,30 @@ from job_hunter.domain.knowledge import (
     EvidenceValidity,
 )
 from job_hunter.domain.retrieval import (
+    DeterministicEvidenceChunker,
     EvidenceExclusionReason,
+    RetrievalFallbackReason,
     RetrievalHit,
     RetrievalMatchReason,
+    RetrievalPromotionEvidence,
     RetrievalQuery,
     RetrievalStatus,
     RetrievalStrategy,
     RetrieverResult,
 )
 from job_hunter.domain.screening import TriageDecision
-from job_hunter.errors import ConflictError, DependencyUnavailableError
+from job_hunter.errors import (
+    ConflictError,
+    ContextBudgetExceededError,
+    DependencyUnavailableError,
+    SemanticUnavailableError,
+)
 from job_hunter.infrastructure.memory import InMemoryStore, InMemoryUnitOfWorkFactory
-from job_hunter.infrastructure.retrieval import FullContextRetriever
+from job_hunter.infrastructure.retrieval import (
+    FullContextRetriever,
+    LexicalMetadataRetriever,
+    estimate_tokens,
+)
 from job_hunter.ingestion.manual import JobSourceRegistry, ManualJDInput, ManualJDSource
 from tests.helpers import DeterministicIdGenerator, FixedClock
 
@@ -155,6 +174,43 @@ class _TruncatingFullContextRetriever:
         )
 
 
+class _UnderreportingLexicalRetriever:
+    @property
+    def strategy(self) -> RetrievalStrategy:
+        return RetrievalStrategy.LEXICAL_METADATA
+
+    @property
+    def version(self) -> str:
+        return "underreporting-v1"
+
+    @property
+    def token_estimator_version(self) -> str:
+        return "deterministic-token-estimator-v1"
+
+    def retrieve(
+        self,
+        query: RetrievalQuery,
+        evidence: tuple[EvidenceItemVersion, ...],
+    ) -> RetrieverResult:
+        del query
+        selected = evidence[0]
+        return RetrieverResult(
+            status=RetrievalStatus.COMPLETED,
+            hits=(
+                RetrievalHit(
+                    evidence_id=selected.evidence_id,
+                    evidence_version_id=selected.version_id,
+                    rank=1,
+                    score=1.0,
+                    reasons=(RetrievalMatchReason.TOKEN_OVERLAP,),
+                ),
+            ),
+            eligible_count=len(evidence),
+            eligible_estimated_tokens=1,
+            selected_estimated_tokens=1,
+        )
+
+
 class _CountingFullContextRetriever:
     def __init__(self) -> None:
         self.called = False
@@ -179,6 +235,117 @@ class _CountingFullContextRetriever:
     ) -> RetrieverResult:
         self.called = True
         return self._delegate.retrieve(query, evidence)
+
+
+class _SupplementalHybridRetriever:
+    def __init__(self) -> None:
+        self.queries: list[str] = []
+        self.selected_chunk_id: EvidenceChunkId | None = None
+
+    @property
+    def strategy(self) -> RetrievalStrategy:
+        return RetrievalStrategy.HYBRID
+
+    @property
+    def version(self) -> str:
+        return "hybrid-rrf-v1"
+
+    @property
+    def token_estimator_version(self) -> str:
+        return "deterministic-token-estimator-v1"
+
+    def retrieve(
+        self,
+        query: RetrievalQuery,
+        evidence: tuple[EvidenceItemVersion, ...],
+    ) -> RetrieverResult:
+        self.queries.append(query.text)
+        eligible_tokens = sum(estimate_tokens(item.canonical_content) for item in evidence)
+        if len(self.queries) == 1:
+            return RetrieverResult(
+                status=RetrievalStatus.NO_RELEVANT_EVIDENCE,
+                hits=(),
+                eligible_count=len(evidence),
+                eligible_estimated_tokens=eligible_tokens,
+                selected_estimated_tokens=0,
+            )
+        selected = evidence[0]
+        chunks = DeterministicEvidenceChunker().chunk((selected,))
+        selected_chunk_id = chunks[-1].chunk_id
+        self.selected_chunk_id = selected_chunk_id
+        selected_tokens = estimate_tokens(selected.canonical_content)
+        return RetrieverResult(
+            status=RetrievalStatus.COMPLETED,
+            hits=(
+                RetrievalHit(
+                    evidence_id=selected.evidence_id,
+                    evidence_version_id=selected.version_id,
+                    rank=1,
+                    score=1.0,
+                    reasons=(RetrievalMatchReason.HYBRID_FUSION,),
+                    evidence_chunk_ids=(selected_chunk_id,),
+                ),
+            ),
+            eligible_count=len(evidence),
+            eligible_estimated_tokens=eligible_tokens,
+            selected_estimated_tokens=selected_tokens,
+        )
+
+
+class _UnavailableHybridRetriever(_SupplementalHybridRetriever):
+    def retrieve(
+        self,
+        query: RetrievalQuery,
+        evidence: tuple[EvidenceItemVersion, ...],
+    ) -> Never:
+        del query, evidence
+        raise SemanticUnavailableError("semantic retrieval is unavailable")
+
+
+class _EmptyHybridRetriever(_SupplementalHybridRetriever):
+    def retrieve(
+        self,
+        query: RetrievalQuery,
+        evidence: tuple[EvidenceItemVersion, ...],
+    ) -> RetrieverResult:
+        self.queries.append(query.text)
+        return RetrieverResult(
+            status=RetrievalStatus.NO_RELEVANT_EVIDENCE,
+            hits=(),
+            eligible_count=len(evidence),
+            eligible_estimated_tokens=sum(
+                estimate_tokens(item.canonical_content) for item in evidence
+            ),
+            selected_estimated_tokens=0,
+        )
+
+
+class _InvalidHybridLineageRetriever(_SupplementalHybridRetriever):
+    def retrieve(
+        self,
+        query: RetrievalQuery,
+        evidence: tuple[EvidenceItemVersion, ...],
+    ) -> Never:
+        del query, evidence
+        raise DependencyUnavailableError("Hybrid source retriever returned invalid lineage")
+
+
+def _promotion_evidence() -> RetrievalPromotionEvidence:
+    return RetrievalPromotionEvidence(
+        dataset_version="frozen-holdout-v1",
+        split="frozen_holdout",
+        human_reviewed=True,
+        minimum_dataset_gate=True,
+        recall_at_5=0.90,
+        direct_mrr=0.80,
+        no_evidence_accuracy=0.95,
+        no_evidence_total=10,
+        final_context_token_reduction=0.40,
+        large_context_case_count=10,
+        large_context_no_evidence_count=2,
+        recall_degradation=0.02,
+        no_evidence_degradation=0.01,
+    )
 
 
 class _CorruptKnowledgeRepository:
@@ -222,6 +389,10 @@ class _CorruptUnitOfWork:
     @property
     def retrieval(self) -> RetrievalRepository:
         return self._delegate.retrieval
+
+    @property
+    def context(self) -> ContextRepository:
+        return self._delegate.context
 
     def commit(self) -> None:
         self.commit_count += 1
@@ -561,6 +732,40 @@ def test_full_context_adapter_cannot_silently_truncate_eligible_evidence() -> No
     assert store.list_retrieval_runs(requirement_id) == ()
 
 
+def test_application_recomputes_retriever_token_accounting_from_evidence() -> None:
+    store = InMemoryStore()
+    factory = InMemoryUnitOfWorkFactory(store)
+    ids = DeterministicIdGenerator()
+    job_id = _import_job(factory, ids)
+    requirement_id = _shortlist(factory, ids, job_id)
+    _save_evidence(
+        factory,
+        ids,
+        content=" ".join(f"synthetic{index}" for index in range(100)),
+        sensitivity=EvidenceSensitivity.PUBLIC,
+        validity=EvidenceValidity.VALID,
+    )
+
+    with pytest.raises(DependencyUnavailableError, match="token accounting"):
+        RetrieveEvidence(
+            unit_of_work_factory=factory,
+            retriever=_UnderreportingLexicalRetriever(),
+            clock=FixedClock(NOW),
+            id_generator=ids,
+        ).execute(
+            RetrieveEvidenceCommand(
+                requirement_id=requirement_id,
+                allowed_sensitivities=(EvidenceSensitivity.PUBLIC,),
+                max_tokens=10,
+                top_k=5,
+                correlation_id=CorrelationId("correlation-retrieve"),
+                run_id=RunId("run-retrieve"),
+            )
+        )
+
+    assert store.list_retrieval_runs(requirement_id) == ()
+
+
 @pytest.mark.parametrize(
     "corruption",
     ("historical_version", "wrong_evidence_item", "wrong_version_id"),
@@ -628,4 +833,340 @@ def test_repository_cannot_return_mismatched_active_evidence_lineage(
 
     assert not retriever.called
     assert corrupt_uow.commit_count == 0
+    assert store.list_retrieval_runs(requirement_id) == ()
+
+
+def test_context_builder_persists_exact_redacted_budgeted_lineage() -> None:
+    store = InMemoryStore()
+    factory = InMemoryUnitOfWorkFactory(store)
+    ids = DeterministicIdGenerator()
+    job_id = _import_job(factory, ids)
+    requirement_id = _shortlist(factory, ids, job_id)
+    CreateCandidateProfile(
+        unit_of_work_factory=factory,
+        clock=FixedClock(NOW),
+        id_generator=ids,
+    ).execute(
+        CreateCandidateProfileCommand(
+            target_role_keywords=("AI Engineer synthetic@example.test",),
+            skill_keywords=("Python",),
+            preferred_cities=("Shenzhen",),
+            correlation_id=CorrelationId("correlation-profile-redacted"),
+            run_id=RunId("run-profile-redacted"),
+        )
+    )
+    _save_evidence(
+        factory,
+        ids,
+        content="Built a Python evaluator; contact synthetic@example.test or +1 555 010 9999",
+        sensitivity=EvidenceSensitivity.PUBLIC,
+        validity=EvidenceValidity.VALID,
+    )
+    retrieval = RetrieveEvidence(
+        unit_of_work_factory=factory,
+        retriever=FullContextRetriever(),
+        clock=FixedClock(NOW),
+        id_generator=ids,
+    ).execute(
+        RetrieveEvidenceCommand(
+            requirement_id=requirement_id,
+            allowed_sensitivities=(EvidenceSensitivity.PUBLIC,),
+            max_tokens=100,
+            top_k=5,
+            correlation_id=CorrelationId("correlation-retrieve"),
+            run_id=RunId("run-retrieve"),
+        )
+    )
+
+    result = BuildContextPackage(
+        unit_of_work_factory=factory,
+        clock=FixedClock(NOW),
+        id_generator=ids,
+    ).execute(
+        BuildContextPackageCommand(
+            retrieval_run_id=retrieval.retrieval_run_id,
+            task_instruction="Assess only evidence-grounded fit.",
+            workflow_identity="deep-fit-analysis",
+            max_tokens=200,
+            correlation_id=CorrelationId("correlation-context"),
+            run_id=RunId("run-context"),
+        )
+    )
+
+    stored = store.get_context_package(result.context_package_id)
+    evidence_entries = tuple(
+        entry for entry in stored.entries if entry.kind is ContextEntryKind.EVIDENCE
+    )
+    assert stored.retrieval_run_id == retrieval.retrieval_run_id
+    assert stored.total_estimated_tokens <= stored.max_tokens
+    assert all(
+        entry.protected
+        for entry in stored.entries
+        if entry.kind
+        in {
+            ContextEntryKind.REQUIREMENT,
+            ContextEntryKind.INSTRUCTION,
+            ContextEntryKind.WORKFLOW,
+        }
+    )
+    assert len(evidence_entries) == 1
+    assert evidence_entries[0].redaction is ContextRedaction.APPLIED
+    assert "synthetic@example.test" not in evidence_entries[0].content
+    assert "555 010 9999" not in evidence_entries[0].content
+    assert evidence_entries[0].evidence_chunk_id is not None
+    assert all("synthetic@example.test" not in entry.content for entry in stored.entries)
+    profile_entry = next(
+        entry for entry in stored.entries if entry.kind is ContextEntryKind.PROFILE
+    )
+    assert profile_entry.redaction is ContextRedaction.APPLIED
+
+
+def test_context_builder_fails_closed_when_protected_content_exceeds_budget() -> None:
+    store = InMemoryStore()
+    factory = InMemoryUnitOfWorkFactory(store)
+    ids = DeterministicIdGenerator()
+    job_id = _import_job(factory, ids)
+    requirement_id = _shortlist(factory, ids, job_id)
+    _save_evidence(
+        factory,
+        ids,
+        content="Built a Python evaluator",
+        sensitivity=EvidenceSensitivity.PUBLIC,
+        validity=EvidenceValidity.VALID,
+    )
+    retrieval = RetrieveEvidence(
+        unit_of_work_factory=factory,
+        retriever=FullContextRetriever(),
+        clock=FixedClock(NOW),
+        id_generator=ids,
+    ).execute(
+        RetrieveEvidenceCommand(
+            requirement_id=requirement_id,
+            allowed_sensitivities=(EvidenceSensitivity.PUBLIC,),
+            max_tokens=100,
+            top_k=5,
+            correlation_id=CorrelationId("correlation-retrieve"),
+            run_id=RunId("run-retrieve"),
+        )
+    )
+
+    with pytest.raises(ContextBudgetExceededError):
+        BuildContextPackage(
+            unit_of_work_factory=factory,
+            clock=FixedClock(NOW),
+            id_generator=ids,
+        ).execute(
+            BuildContextPackageCommand(
+                retrieval_run_id=retrieval.retrieval_run_id,
+                task_instruction="Assess only evidence-grounded fit.",
+                workflow_identity="deep-fit-analysis",
+                max_tokens=3,
+                correlation_id=CorrelationId("correlation-context"),
+                run_id=RunId("run-context"),
+            )
+        )
+
+    assert store.list_context_packages(retrieval.retrieval_run_id) == ()
+
+
+def test_policy_retrieval_records_promotion_and_one_supplemental_query() -> None:
+    store = InMemoryStore()
+    factory = InMemoryUnitOfWorkFactory(store)
+    ids = DeterministicIdGenerator()
+    job_id = _import_job(factory, ids)
+    requirement_id = _shortlist(factory, ids, job_id)
+    _save_evidence(
+        factory,
+        ids,
+        content=" ".join(f"synthetic{index}" for index in range(1_300)),
+        sensitivity=EvidenceSensitivity.PUBLIC,
+        validity=EvidenceValidity.VALID,
+    )
+    hybrid = _SupplementalHybridRetriever()
+
+    result = RetrieveEvidence(
+        unit_of_work_factory=factory,
+        full_context_retriever=FullContextRetriever(),
+        lexical_retriever=LexicalMetadataRetriever(),
+        hybrid_retriever=hybrid,
+        promotion_evidence=_promotion_evidence(),
+        semantic_ready=True,
+        index_version="chroma-evidence-v1",
+        embedding_provider_version="semantic-onnx-minilm-v1",
+        chunk_policy_version="evidence-chunk-v1",
+        clock=FixedClock(NOW),
+        id_generator=ids,
+    ).execute(
+        RetrieveEvidenceCommand(
+            requirement_id=requirement_id,
+            allowed_sensitivities=(EvidenceSensitivity.PUBLIC,),
+            max_tokens=2_000,
+            top_k=5,
+            correlation_id=CorrelationId("correlation-retrieve"),
+            run_id=RunId("run-retrieve"),
+        )
+    )
+
+    stored = store.get_retrieval_run(result.retrieval_run_id)
+    assert result.strategy is RetrievalStrategy.HYBRID
+    assert result.initial_strategy is RetrievalStrategy.HYBRID
+    assert result.query_count == 2
+    assert stored.policy_version == "retrieval-policy-v1"
+    assert stored.promotion_dataset_version == "frozen-holdout-v1"
+    assert stored.semantic_ready
+    assert stored.supplemental_query_text == hybrid.queries[1]
+    assert len(hybrid.queries) == 2
+
+    context = BuildContextPackage(
+        unit_of_work_factory=factory,
+        clock=FixedClock(NOW),
+        id_generator=ids,
+    ).execute(
+        BuildContextPackageCommand(
+            retrieval_run_id=result.retrieval_run_id,
+            task_instruction="Assess only evidence-grounded fit.",
+            workflow_identity="deep-fit-analysis",
+            max_tokens=300,
+            correlation_id=CorrelationId("correlation-context"),
+            run_id=RunId("run-context"),
+        )
+    )
+    package = store.get_context_package(context.context_package_id)
+    evidence_entries = tuple(
+        entry for entry in package.entries if entry.kind is ContextEntryKind.EVIDENCE
+    )
+    assert tuple(entry.evidence_chunk_id for entry in evidence_entries) == (
+        hybrid.selected_chunk_id,
+    )
+
+
+def test_policy_stops_after_one_supplemental_query_with_insufficient_evidence() -> None:
+    store = InMemoryStore()
+    factory = InMemoryUnitOfWorkFactory(store)
+    ids = DeterministicIdGenerator()
+    job_id = _import_job(factory, ids)
+    requirement_id = _shortlist(factory, ids, job_id)
+    _save_evidence(
+        factory,
+        ids,
+        content=" ".join(f"synthetic{index}" for index in range(1_300)),
+        sensitivity=EvidenceSensitivity.PUBLIC,
+        validity=EvidenceValidity.VALID,
+    )
+    hybrid = _EmptyHybridRetriever()
+
+    result = RetrieveEvidence(
+        unit_of_work_factory=factory,
+        full_context_retriever=FullContextRetriever(),
+        lexical_retriever=LexicalMetadataRetriever(),
+        hybrid_retriever=hybrid,
+        promotion_evidence=_promotion_evidence(),
+        semantic_ready=True,
+        index_version="chroma-evidence-v1",
+        embedding_provider_version="semantic-onnx-minilm-v1",
+        chunk_policy_version="evidence-chunk-v1",
+        clock=FixedClock(NOW),
+        id_generator=ids,
+    ).execute(
+        RetrieveEvidenceCommand(
+            requirement_id=requirement_id,
+            allowed_sensitivities=(EvidenceSensitivity.PUBLIC,),
+            max_tokens=2_000,
+            top_k=5,
+            correlation_id=CorrelationId("correlation-retrieve"),
+            run_id=RunId("run-retrieve"),
+        )
+    )
+
+    stored = store.get_retrieval_run(result.retrieval_run_id)
+    assert result.status is RetrievalStatus.INSUFFICIENT_EVIDENCE
+    assert result.query_count == 2
+    assert stored.supplemental_query_text == hybrid.queries[1]
+    assert len(hybrid.queries) == 2
+
+
+def test_unavailable_hybrid_falls_back_without_leaking_adapter_failure() -> None:
+    store = InMemoryStore()
+    factory = InMemoryUnitOfWorkFactory(store)
+    ids = DeterministicIdGenerator()
+    job_id = _import_job(factory, ids)
+    requirement_id = _shortlist(factory, ids, job_id)
+    _save_evidence(
+        factory,
+        ids,
+        content=" ".join(f"synthetic{index}" for index in range(1_300)),
+        sensitivity=EvidenceSensitivity.PUBLIC,
+        validity=EvidenceValidity.VALID,
+    )
+
+    result = RetrieveEvidence(
+        unit_of_work_factory=factory,
+        full_context_retriever=FullContextRetriever(),
+        lexical_retriever=LexicalMetadataRetriever(),
+        hybrid_retriever=_UnavailableHybridRetriever(),
+        promotion_evidence=_promotion_evidence(),
+        semantic_ready=True,
+        index_version="chroma-evidence-v1",
+        embedding_provider_version="semantic-onnx-minilm-v1",
+        chunk_policy_version="evidence-chunk-v1",
+        clock=FixedClock(NOW),
+        id_generator=ids,
+    ).execute(
+        RetrieveEvidenceCommand(
+            requirement_id=requirement_id,
+            allowed_sensitivities=(EvidenceSensitivity.PUBLIC,),
+            max_tokens=2_000,
+            top_k=5,
+            correlation_id=CorrelationId("correlation-retrieve"),
+            run_id=RunId("run-retrieve"),
+        )
+    )
+
+    assert result.initial_strategy is RetrievalStrategy.HYBRID
+    assert result.strategy is RetrievalStrategy.FULL_CONTEXT
+    assert result.fallback_reason is RetrievalFallbackReason.SEMANTIC_UNAVAILABLE
+    assert result.status is RetrievalStatus.COMPLETED
+
+
+def test_invalid_hybrid_lineage_cannot_be_reclassified_as_runtime_fallback() -> None:
+    store = InMemoryStore()
+    factory = InMemoryUnitOfWorkFactory(store)
+    ids = DeterministicIdGenerator()
+    job_id = _import_job(factory, ids)
+    requirement_id = _shortlist(factory, ids, job_id)
+    _save_evidence(
+        factory,
+        ids,
+        content=" ".join(f"synthetic{index}" for index in range(1_300)),
+        sensitivity=EvidenceSensitivity.PUBLIC,
+        validity=EvidenceValidity.VALID,
+    )
+
+    with pytest.raises(
+        DependencyUnavailableError,
+        match="Hybrid source retriever returned invalid lineage",
+    ):
+        RetrieveEvidence(
+            unit_of_work_factory=factory,
+            full_context_retriever=FullContextRetriever(),
+            lexical_retriever=LexicalMetadataRetriever(),
+            hybrid_retriever=_InvalidHybridLineageRetriever(),
+            promotion_evidence=_promotion_evidence(),
+            semantic_ready=True,
+            index_version="chroma-evidence-v1",
+            embedding_provider_version="semantic-onnx-minilm-v1",
+            chunk_policy_version="evidence-chunk-v1",
+            clock=FixedClock(NOW),
+            id_generator=ids,
+        ).execute(
+            RetrieveEvidenceCommand(
+                requirement_id=requirement_id,
+                allowed_sensitivities=(EvidenceSensitivity.PUBLIC,),
+                max_tokens=2_000,
+                top_k=5,
+                correlation_id=CorrelationId("correlation-retrieve"),
+                run_id=RunId("run-retrieve"),
+            )
+        )
+
     assert store.list_retrieval_runs(requirement_id) == ()

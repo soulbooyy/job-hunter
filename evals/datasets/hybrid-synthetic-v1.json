@@ -1,0 +1,235 @@
+{
+  "manifest": {
+    "dataset_version": "hybrid-synthetic-v1",
+    "annotation_version": "annotation-v1",
+    "split": "synthetic",
+    "source": "non-sensitive synthetic fixtures",
+    "generation_method": "deterministic scenario authoring for retrieval mechanics",
+    "human_edits": false,
+    "smoke_fixture": false
+  },
+  "retrieval_cases": [
+    {
+      "case_id": "hybrid-01", "source": "synthetic", "generation_method": "authored semantic paraphrase", "human_edits": false,
+      "job_id": "job-01", "requirement_id": "requirement-01", "requirement_text": "Led ambiguous cross-functional delivery", "allowed_sensitivities": ["public"], "max_tokens": 400, "top_k": 2,
+      "evidence": [
+        {"evidence_id": "e01-direct", "evidence_version_id": "ev01-direct", "evidence_type": "experience", "canonical_content": "Coordinated product engineering and design teams through an uncertain launch and resolved competing priorities.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e01-a", "evidence_version_id": "ev01-a", "evidence_type": "education", "canonical_content": "Completed a structured database fundamentals course with individual assignments and examinations.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e01-b", "evidence_version_id": "ev01-b", "evidence_type": "skill", "canonical_content": "Used spreadsheet formulas to prepare a recurring personal budget summary and chart.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e01-c", "evidence_version_id": "ev01-c", "evidence_type": "certification", "canonical_content": "Earned an introductory networking credential covering routing concepts and address allocation.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"}
+      ],
+      "judgments": [{"evidence_id": "e01-direct", "relevance": "direct"}], "no_relevant_evidence": false, "no_relevant_evidence_human_confirmed": false
+    },
+    {
+      "case_id": "hybrid-02", "source": "synthetic", "generation_method": "authored semantic paraphrase", "human_edits": false,
+      "job_id": "job-02", "requirement_id": "requirement-02", "requirement_text": "Improved machine learning inference latency", "allowed_sensitivities": ["public"], "max_tokens": 400, "top_k": 2,
+      "evidence": [
+        {"evidence_id": "e02-direct", "evidence_version_id": "ev02-direct", "evidence_type": "project", "canonical_content": "Reduced model serving response time by batching requests and profiling the prediction pipeline.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e02-a", "evidence_version_id": "ev02-a", "evidence_type": "experience", "canonical_content": "Prepared quarterly hiring schedules and coordinated interview calendars across several departments.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e02-b", "evidence_version_id": "ev02-b", "evidence_type": "education", "canonical_content": "Studied foundational accounting concepts including ledgers reconciliation and financial statements.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e02-c", "evidence_version_id": "ev02-c", "evidence_type": "skill", "canonical_content": "Created presentation templates and standardized typography for internal meeting materials.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"}
+      ],
+      "judgments": [{"evidence_id": "e02-direct", "relevance": "direct"}], "no_relevant_evidence": false, "no_relevant_evidence_human_confirmed": false
+    },
+    {
+      "case_id": "hybrid-03", "source": "synthetic", "generation_method": "authored semantic paraphrase", "human_edits": false,
+      "job_id": "job-03", "requirement_id": "requirement-03", "requirement_text": "Built reliable data quality monitoring", "allowed_sensitivities": ["public"], "max_tokens": 400, "top_k": 2,
+      "evidence": [
+        {"evidence_id": "e03-direct", "evidence_version_id": "ev03-direct", "evidence_type": "project", "canonical_content": "Implemented automated anomaly checks and freshness alerts for production analytics pipelines.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e03-a", "evidence_version_id": "ev03-a", "evidence_type": "experience", "canonical_content": "Organized a volunteer event and maintained the attendee registration list.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e03-b", "evidence_version_id": "ev03-b", "evidence_type": "skill", "canonical_content": "Edited short instructional videos with captions and basic color correction.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e03-c", "evidence_version_id": "ev03-c", "evidence_type": "education", "canonical_content": "Completed coursework in microeconomics and consumer choice theory.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"}
+      ],
+      "judgments": [{"evidence_id": "e03-direct", "relevance": "direct"}], "no_relevant_evidence": false, "no_relevant_evidence_human_confirmed": false
+    },
+    {
+      "case_id": "hybrid-04", "source": "synthetic", "generation_method": "authored semantic paraphrase", "human_edits": false,
+      "job_id": "job-04", "requirement_id": "requirement-04", "requirement_text": "Mentored engineers and raised team capability", "allowed_sensitivities": ["public"], "max_tokens": 400, "top_k": 2,
+      "evidence": [
+        {"evidence_id": "e04-direct", "evidence_version_id": "ev04-direct", "evidence_type": "experience", "canonical_content": "Coached junior developers through design reviews and created a practical onboarding curriculum.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e04-a", "evidence_version_id": "ev04-a", "evidence_type": "project", "canonical_content": "Configured a home media server and catalogued a personal movie collection.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e04-b", "evidence_version_id": "ev04-b", "evidence_type": "education", "canonical_content": "Studied international trade policy and comparative advantage in an elective seminar.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e04-c", "evidence_version_id": "ev04-c", "evidence_type": "skill", "canonical_content": "Used illustration software to prepare simple event posters and social images.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"}
+      ],
+      "judgments": [{"evidence_id": "e04-direct", "relevance": "direct"}], "no_relevant_evidence": false, "no_relevant_evidence_human_confirmed": false
+    },
+    {
+      "case_id": "hybrid-05", "source": "synthetic", "generation_method": "authored semantic paraphrase", "human_edits": false,
+      "job_id": "job-05", "requirement_id": "requirement-05", "requirement_text": "Designed resilient distributed services", "allowed_sensitivities": ["public"], "max_tokens": 400, "top_k": 2,
+      "evidence": [
+        {"evidence_id": "e05-direct", "evidence_version_id": "ev05-direct", "evidence_type": "experience", "canonical_content": "Introduced idempotent processing circuit breakers and graceful failover across regional service instances.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e05-a", "evidence_version_id": "ev05-a", "evidence_type": "education", "canonical_content": "Completed a literature survey focused on twentieth century poetry and criticism.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e05-b", "evidence_version_id": "ev05-b", "evidence_type": "project", "canonical_content": "Planned a community garden layout and tracked seasonal planting dates.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e05-c", "evidence_version_id": "ev05-c", "evidence_type": "skill", "canonical_content": "Prepared meeting agendas and summarized action items for a local club.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"}
+      ],
+      "judgments": [{"evidence_id": "e05-direct", "relevance": "direct"}], "no_relevant_evidence": false, "no_relevant_evidence_human_confirmed": false
+    },
+    {
+      "case_id": "hybrid-06", "source": "synthetic", "generation_method": "authored semantic paraphrase", "human_edits": false,
+      "job_id": "job-06", "requirement_id": "requirement-06", "requirement_text": "Translated customer needs into product direction", "allowed_sensitivities": ["public"], "max_tokens": 400, "top_k": 2,
+      "evidence": [
+        {"evidence_id": "e06-direct", "evidence_version_id": "ev06-direct", "evidence_type": "experience", "canonical_content": "Synthesized user interviews into a prioritized roadmap and measurable release outcomes.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e06-a", "evidence_version_id": "ev06-a", "evidence_type": "certification", "canonical_content": "Passed a basic workplace safety assessment covering evacuation procedures.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e06-b", "evidence_version_id": "ev06-b", "evidence_type": "skill", "canonical_content": "Maintained a personal reading list with categories and completion dates.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e06-c", "evidence_version_id": "ev06-c", "evidence_type": "education", "canonical_content": "Studied introductory geology including mineral identification and plate tectonics.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"}
+      ],
+      "judgments": [{"evidence_id": "e06-direct", "relevance": "direct"}], "no_relevant_evidence": false, "no_relevant_evidence_human_confirmed": false
+    },
+    {
+      "case_id": "hybrid-07", "source": "synthetic", "generation_method": "authored semantic paraphrase", "human_edits": false,
+      "job_id": "job-07", "requirement_id": "requirement-07", "requirement_text": "Automated cloud infrastructure delivery", "allowed_sensitivities": ["public"], "max_tokens": 400, "top_k": 2,
+      "evidence": [
+        {"evidence_id": "e07-direct", "evidence_version_id": "ev07-direct", "evidence_type": "project", "canonical_content": "Provisioned repeatable environments through declarative templates and continuous deployment pipelines.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e07-a", "evidence_version_id": "ev07-a", "evidence_type": "experience", "canonical_content": "Coordinated office seating assignments during a floor renovation.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e07-b", "evidence_version_id": "ev07-b", "evidence_type": "education", "canonical_content": "Completed an introductory course in cultural anthropology and field observation.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e07-c", "evidence_version_id": "ev07-c", "evidence_type": "skill", "canonical_content": "Created simple vector icons for an internal newsletter template.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"}
+      ],
+      "judgments": [{"evidence_id": "e07-direct", "relevance": "direct"}], "no_relevant_evidence": false, "no_relevant_evidence_human_confirmed": false
+    },
+    {
+      "case_id": "hybrid-08", "source": "synthetic", "generation_method": "authored semantic paraphrase", "human_edits": false,
+      "job_id": "job-08", "requirement_id": "requirement-08", "requirement_text": "Protected sensitive data and access", "allowed_sensitivities": ["public"], "max_tokens": 400, "top_k": 2,
+      "evidence": [
+        {"evidence_id": "e08-direct", "evidence_version_id": "ev08-direct", "evidence_type": "experience", "canonical_content": "Implemented least privilege authorization encrypted storage and audited secret rotation procedures.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e08-a", "evidence_version_id": "ev08-a", "evidence_type": "project", "canonical_content": "Built a recipe organizer with tags for meal type and preparation time.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e08-b", "evidence_version_id": "ev08-b", "evidence_type": "education", "canonical_content": "Studied the history of architecture from classical to modern periods.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e08-c", "evidence_version_id": "ev08-c", "evidence_type": "skill", "canonical_content": "Formatted survey results for presentation in a monthly team meeting.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"}
+      ],
+      "judgments": [{"evidence_id": "e08-direct", "relevance": "direct"}], "no_relevant_evidence": false, "no_relevant_evidence_human_confirmed": false
+    },
+    {
+      "case_id": "hybrid-09", "source": "synthetic", "generation_method": "authored semantic paraphrase", "human_edits": false,
+      "job_id": "job-09", "requirement_id": "requirement-09", "requirement_text": "Diagnosed difficult production incidents", "allowed_sensitivities": ["public"], "max_tokens": 400, "top_k": 2,
+      "evidence": [
+        {"evidence_id": "e09-direct", "evidence_version_id": "ev09-direct", "evidence_type": "experience", "canonical_content": "Traced an intermittent outage across logs metrics and distributed request paths then shipped the corrective change.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e09-a", "evidence_version_id": "ev09-a", "evidence_type": "skill", "canonical_content": "Used a calendar application to coordinate recurring personal reminders.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e09-b", "evidence_version_id": "ev09-b", "evidence_type": "education", "canonical_content": "Completed a course on public speaking and audience engagement techniques.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e09-c", "evidence_version_id": "ev09-c", "evidence_type": "project", "canonical_content": "Catalogued photographs by date and location for a community archive.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"}
+      ],
+      "judgments": [{"evidence_id": "e09-direct", "relevance": "direct"}], "no_relevant_evidence": false, "no_relevant_evidence_human_confirmed": false
+    },
+    {
+      "case_id": "hybrid-10", "source": "synthetic", "generation_method": "authored semantic paraphrase", "human_edits": false,
+      "job_id": "job-10", "requirement_id": "requirement-10", "requirement_text": "Established experimentation and measurement", "allowed_sensitivities": ["public"], "max_tokens": 400, "top_k": 2,
+      "evidence": [
+        {"evidence_id": "e10-direct", "evidence_version_id": "ev10-direct", "evidence_type": "project", "canonical_content": "Designed controlled product tests with success metrics guardrails and statistical analysis of outcomes.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e10-a", "evidence_version_id": "ev10-a", "evidence_type": "experience", "canonical_content": "Scheduled weekly equipment checks and recorded maintenance completion dates.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e10-b", "evidence_version_id": "ev10-b", "evidence_type": "education", "canonical_content": "Studied introductory music theory including rhythm scales and harmony.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e10-c", "evidence_version_id": "ev10-c", "evidence_type": "skill", "canonical_content": "Prepared printable labels for shared storage cabinets and supplies.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"}
+      ],
+      "judgments": [{"evidence_id": "e10-direct", "relevance": "direct"}], "no_relevant_evidence": false, "no_relevant_evidence_human_confirmed": false
+    },
+    {
+      "case_id": "hybrid-11", "source": "synthetic", "generation_method": "authored semantic paraphrase", "human_edits": false,
+      "job_id": "job-11", "requirement_id": "requirement-11", "requirement_text": "Made search results more relevant", "allowed_sensitivities": ["public"], "max_tokens": 400, "top_k": 2,
+      "evidence": [
+        {"evidence_id": "e11-direct", "evidence_version_id": "ev11-direct", "evidence_type": "project", "canonical_content": "Improved ranking quality using offline relevance judgments feature analysis and controlled evaluation.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e11-a", "evidence_version_id": "ev11-a", "evidence_type": "experience", "canonical_content": "Maintained inventory counts for office stationery and placed replenishment orders.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e11-b", "evidence_version_id": "ev11-b", "evidence_type": "education", "canonical_content": "Completed a seminar on environmental policy and sustainable urban planning.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e11-c", "evidence_version_id": "ev11-c", "evidence_type": "skill", "canonical_content": "Created a travel itinerary with maps reservations and museum opening times.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"}
+      ],
+      "judgments": [{"evidence_id": "e11-direct", "relevance": "direct"}], "no_relevant_evidence": false, "no_relevant_evidence_human_confirmed": false
+    },
+    {
+      "case_id": "hybrid-12", "source": "synthetic", "generation_method": "authored semantic paraphrase", "human_edits": false,
+      "job_id": "job-12", "requirement_id": "requirement-12", "requirement_text": "Reduced operating cost without harming reliability", "allowed_sensitivities": ["public"], "max_tokens": 400, "top_k": 2,
+      "evidence": [
+        {"evidence_id": "e12-direct", "evidence_version_id": "ev12-direct", "evidence_type": "experience", "canonical_content": "Rightsized compute capacity and storage retention while preserving service objectives and failure margins.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e12-a", "evidence_version_id": "ev12-a", "evidence_type": "education", "canonical_content": "Studied basic nutrition principles and methods for planning balanced meals.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e12-b", "evidence_version_id": "ev12-b", "evidence_type": "project", "canonical_content": "Built a small collection tracker for books and lending dates.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e12-c", "evidence_version_id": "ev12-c", "evidence_type": "skill", "canonical_content": "Arranged meeting rooms and refreshments for quarterly workshops.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"}
+      ],
+      "judgments": [{"evidence_id": "e12-direct", "relevance": "direct"}], "no_relevant_evidence": false, "no_relevant_evidence_human_confirmed": false
+    },
+    {
+      "case_id": "hybrid-13", "source": "synthetic", "generation_method": "authored semantic paraphrase", "human_edits": false,
+      "job_id": "job-13", "requirement_id": "requirement-13", "requirement_text": "Created accessible user experiences", "allowed_sensitivities": ["public"], "max_tokens": 400, "top_k": 2,
+      "evidence": [
+        {"evidence_id": "e13-direct", "evidence_version_id": "ev13-direct", "evidence_type": "project", "canonical_content": "Added keyboard navigation semantic labels and contrast improvements validated with assistive technology.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e13-a", "evidence_version_id": "ev13-a", "evidence_type": "experience", "canonical_content": "Compiled attendance totals and sent routine reminders for a recurring meeting.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e13-b", "evidence_version_id": "ev13-b", "evidence_type": "education", "canonical_content": "Studied basic astronomy including planetary motion and stellar classification.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e13-c", "evidence_version_id": "ev13-c", "evidence_type": "skill", "canonical_content": "Used photo editing software to crop images for a club website.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"}
+      ],
+      "judgments": [{"evidence_id": "e13-direct", "relevance": "direct"}], "no_relevant_evidence": false, "no_relevant_evidence_human_confirmed": false
+    },
+    {
+      "case_id": "hybrid-14", "source": "synthetic", "generation_method": "authored semantic paraphrase", "human_edits": false,
+      "job_id": "job-14", "requirement_id": "requirement-14", "requirement_text": "Influenced decisions using technical communication", "allowed_sensitivities": ["public"], "max_tokens": 400, "top_k": 2,
+      "evidence": [
+        {"evidence_id": "e14-direct", "evidence_version_id": "ev14-direct", "evidence_type": "experience", "canonical_content": "Presented architecture tradeoffs to executives and aligned stakeholders on a staged migration decision.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e14-a", "evidence_version_id": "ev14-a", "evidence_type": "project", "canonical_content": "Organized a personal fitness log with weekly distance summaries.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e14-b", "evidence_version_id": "ev14-b", "evidence_type": "education", "canonical_content": "Completed coursework on ancient history and archaeological methods.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e14-c", "evidence_version_id": "ev14-c", "evidence_type": "skill", "canonical_content": "Prepared a rotating schedule for shared kitchen cleaning duties.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"}
+      ],
+      "judgments": [{"evidence_id": "e14-direct", "relevance": "direct"}], "no_relevant_evidence": false, "no_relevant_evidence_human_confirmed": false
+    },
+    {
+      "case_id": "hybrid-15", "source": "synthetic", "generation_method": "authored semantic paraphrase", "human_edits": false,
+      "job_id": "job-15", "requirement_id": "requirement-15", "requirement_text": "Migrated legacy systems safely", "allowed_sensitivities": ["public"], "max_tokens": 400, "top_k": 2,
+      "evidence": [
+        {"evidence_id": "e15-direct", "evidence_version_id": "ev15-direct", "evidence_type": "experience", "canonical_content": "Replaced an aging platform through parallel validation rollback controls and incremental traffic cutover.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e15-a", "evidence_version_id": "ev15-a", "evidence_type": "skill", "canonical_content": "Maintained a checklist for household repairs and warranty dates.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e15-b", "evidence_version_id": "ev15-b", "evidence_type": "education", "canonical_content": "Studied conversational language basics for travel and everyday situations.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e15-c", "evidence_version_id": "ev15-c", "evidence_type": "project", "canonical_content": "Created printable scorecards for a recreational sports tournament.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"}
+      ],
+      "judgments": [{"evidence_id": "e15-direct", "relevance": "direct"}], "no_relevant_evidence": false, "no_relevant_evidence_human_confirmed": false
+    },
+    {
+      "case_id": "hybrid-16", "source": "synthetic", "generation_method": "authored semantic paraphrase", "human_edits": false,
+      "job_id": "job-16", "requirement_id": "requirement-16", "requirement_text": "Improved developer productivity", "allowed_sensitivities": ["public"], "max_tokens": 400, "top_k": 2,
+      "evidence": [
+        {"evidence_id": "e16-direct", "evidence_version_id": "ev16-direct", "evidence_type": "project", "canonical_content": "Shortened build feedback and automated repetitive repository setup for engineering teams.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e16-a", "evidence_version_id": "ev16-a", "evidence_type": "education", "canonical_content": "Completed an introductory course in drawing perspective and composition.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e16-b", "evidence_version_id": "ev16-b", "evidence_type": "experience", "canonical_content": "Coordinated catering quantities and dietary notes for an internal event.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e16-c", "evidence_version_id": "ev16-c", "evidence_type": "skill", "canonical_content": "Created simple charts showing monthly household electricity usage.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"}
+      ],
+      "judgments": [{"evidence_id": "e16-direct", "relevance": "direct"}], "no_relevant_evidence": false, "no_relevant_evidence_human_confirmed": false
+    },
+    {
+      "case_id": "hybrid-17", "source": "synthetic", "generation_method": "authored semantic paraphrase", "human_edits": false,
+      "job_id": "job-17", "requirement_id": "requirement-17", "requirement_text": "Owned service observability", "allowed_sensitivities": ["public"], "max_tokens": 400, "top_k": 2,
+      "evidence": [
+        {"evidence_id": "e17-direct", "evidence_version_id": "ev17-direct", "evidence_type": "experience", "canonical_content": "Defined actionable telemetry dashboards alerts and tracing for critical request journeys.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e17-a", "evidence_version_id": "ev17-a", "evidence_type": "project", "canonical_content": "Built a personal music playlist organizer grouped by mood and decade.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e17-b", "evidence_version_id": "ev17-b", "evidence_type": "education", "canonical_content": "Studied introductory philosophy including logic ethics and epistemology.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e17-c", "evidence_version_id": "ev17-c", "evidence_type": "skill", "canonical_content": "Formatted mailing labels and sorted outgoing correspondence by destination.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"}
+      ],
+      "judgments": [{"evidence_id": "e17-direct", "relevance": "direct"}], "no_relevant_evidence": false, "no_relevant_evidence_human_confirmed": false
+    },
+    {
+      "case_id": "hybrid-18", "source": "synthetic", "generation_method": "authored semantic paraphrase", "human_edits": false,
+      "job_id": "job-18", "requirement_id": "requirement-18", "requirement_text": "Delivered multilingual product support", "allowed_sensitivities": ["public"], "max_tokens": 400, "top_k": 2,
+      "evidence": [
+        {"evidence_id": "e18-direct", "evidence_version_id": "ev18-direct", "evidence_type": "project", "canonical_content": "Implemented locale-aware formatting translation workflows and fallback behavior across regional interfaces.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e18-a", "evidence_version_id": "ev18-a", "evidence_type": "experience", "canonical_content": "Tracked conference room usage and adjusted recurring reservations.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e18-b", "evidence_version_id": "ev18-b", "evidence_type": "education", "canonical_content": "Completed a course on introductory chemistry and laboratory measurement.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e18-c", "evidence_version_id": "ev18-c", "evidence_type": "skill", "canonical_content": "Prepared a photo slideshow for a community celebration.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"}
+      ],
+      "judgments": [{"evidence_id": "e18-direct", "relevance": "direct"}], "no_relevant_evidence": false, "no_relevant_evidence_human_confirmed": false
+    },
+    {
+      "case_id": "hybrid-19", "source": "synthetic", "generation_method": "authored semantic paraphrase", "human_edits": false,
+      "job_id": "job-19", "requirement_id": "requirement-19", "requirement_text": "Managed technical risk during change", "allowed_sensitivities": ["public"], "max_tokens": 400, "top_k": 2,
+      "evidence": [
+        {"evidence_id": "e19-direct", "evidence_version_id": "ev19-direct", "evidence_type": "experience", "canonical_content": "Mapped failure modes staged deployment exposure and defined rollback criteria before a major release.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e19-a", "evidence_version_id": "ev19-a", "evidence_type": "project", "canonical_content": "Organized household receipts by month and spending category.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e19-b", "evidence_version_id": "ev19-b", "evidence_type": "education", "canonical_content": "Studied fundamentals of theatre history and stage production.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e19-c", "evidence_version_id": "ev19-c", "evidence_type": "skill", "canonical_content": "Maintained a contact list for local volunteer coordinators.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"}
+      ],
+      "judgments": [{"evidence_id": "e19-direct", "relevance": "direct"}], "no_relevant_evidence": false, "no_relevant_evidence_human_confirmed": false
+    },
+    {
+      "case_id": "hybrid-20", "source": "synthetic", "generation_method": "authored semantic paraphrase", "human_edits": false,
+      "job_id": "job-20", "requirement_id": "requirement-20", "requirement_text": "Used feedback to improve an AI system", "allowed_sensitivities": ["public"], "max_tokens": 400, "top_k": 2,
+      "evidence": [
+        {"evidence_id": "e20-direct", "evidence_version_id": "ev20-direct", "evidence_type": "project", "canonical_content": "Analyzed evaluator disagreements and failure examples then refined prompts data and quality checks.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e20-a", "evidence_version_id": "ev20-a", "evidence_type": "experience", "canonical_content": "Coordinated delivery times for routine office supply orders.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e20-b", "evidence_version_id": "ev20-b", "evidence_type": "education", "canonical_content": "Completed an introductory course on human geography and population trends.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"},
+        {"evidence_id": "e20-c", "evidence_version_id": "ev20-c", "evidence_type": "skill", "canonical_content": "Created a checklist for packing equipment before local events.", "source": "synthetic", "provenance": "synthetic fixture", "sensitivity": "public", "validity": "valid"}
+      ],
+      "judgments": [{"evidence_id": "e20-direct", "relevance": "direct"}], "no_relevant_evidence": false, "no_relevant_evidence_human_confirmed": false
+    }
+  ],
+  "parser_cases": [],
+  "quick_screen_cases": []
+}

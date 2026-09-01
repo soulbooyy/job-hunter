@@ -3,8 +3,10 @@
 from datetime import datetime
 from typing import Protocol
 
+from job_hunter.domain.context import ContextPackage
 from job_hunter.domain.ids import (
     CandidateProfileId,
+    ContextPackageId,
     EvidenceItemId,
     EvidenceVersionId,
     JobId,
@@ -17,12 +19,19 @@ from job_hunter.domain.ids import (
     TriageDecisionId,
 )
 from job_hunter.domain.jobs import Job, JobVersion, SourceSnapshot
-from job_hunter.domain.knowledge import CandidateProfile, EvidenceItem, EvidenceItemVersion
+from job_hunter.domain.knowledge import (
+    CandidateProfile,
+    EvidenceItem,
+    EvidenceItemVersion,
+    EvidenceSensitivity,
+)
 from job_hunter.domain.retrieval import (
     RetrievalQuery,
     RetrievalRun,
     RetrievalStrategy,
     RetrieverResult,
+    SemanticChunkMatch,
+    SemanticIndexRecord,
 )
 from job_hunter.domain.screening import JobTriageRecord, ParsedRequirement, QuickScreenResult
 
@@ -54,6 +63,8 @@ class IdGenerator(Protocol):
 
     def new_retrieval_run_id(self) -> RetrievalRunId: ...
 
+    def new_context_package_id(self) -> ContextPackageId: ...
+
 
 class EvidenceRetriever(Protocol):
     @property
@@ -70,6 +81,46 @@ class EvidenceRetriever(Protocol):
         query: RetrievalQuery,
         evidence: tuple[EvidenceItemVersion, ...],
     ) -> RetrieverResult: ...
+
+
+class EmbeddingProvider(Protocol):
+    @property
+    def version(self) -> str: ...
+
+    @property
+    def dimension(self) -> int: ...
+
+    def embed(self, texts: tuple[str, ...]) -> tuple[tuple[float, ...], ...]: ...
+
+
+class SemanticIndex(Protocol):
+    @property
+    def version(self) -> str: ...
+
+    @property
+    def chunk_policy_version(self) -> str: ...
+
+    @property
+    def embedding_provider_version(self) -> str: ...
+
+    @property
+    def embedding_dimension(self) -> int: ...
+
+    def is_ready(self) -> bool: ...
+
+    def reconcile(
+        self,
+        records: tuple[SemanticIndexRecord, ...],
+        embeddings: tuple[tuple[float, ...], ...],
+    ) -> None: ...
+
+    def query(
+        self,
+        embedding: tuple[float, ...],
+        *,
+        allowed_sensitivities: tuple[EvidenceSensitivity, ...],
+        limit: int,
+    ) -> tuple[SemanticChunkMatch, ...]: ...
 
 
 class JobRepository(Protocol):
@@ -142,6 +193,14 @@ class RetrievalRepository(Protocol):
     def add_run(self, run: RetrievalRun) -> None: ...
 
 
+class ContextRepository(Protocol):
+    def get_package(self, context_package_id: ContextPackageId) -> ContextPackage: ...
+
+    def list_packages(self, retrieval_run_id: RetrievalRunId) -> tuple[ContextPackage, ...]: ...
+
+    def add_package(self, package: ContextPackage) -> None: ...
+
+
 class UnitOfWork(Protocol):
     @property
     def jobs(self) -> JobRepository: ...
@@ -154,6 +213,9 @@ class UnitOfWork(Protocol):
 
     @property
     def retrieval(self) -> RetrievalRepository: ...
+
+    @property
+    def context(self) -> ContextRepository: ...
 
     def commit(self) -> None: ...
 
