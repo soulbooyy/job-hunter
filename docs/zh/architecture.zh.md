@@ -400,6 +400,10 @@ Deterministic compaction 顺序由 versioned CompactionPolicy 控制：去重/�
 
 Compaction 改变模型可见 representation，不修改 Candidate Knowledge、User Preference 或 domain authority。
 
+`runtime-context-policy-v1` 消费一个 immutable ContextPackage，并生成独立的 immutable RuntimeContextSnapshot；绝不编辑或替换 source package。Runtime entry 围绕冻结的 ContextEntry 增加 priority、retention、source ordinal 与 rehydration metadata。Exact duplicate elimination 会在 provenance 中保留每个 source ordinal。Obsolete elimination 必须基于显式 same-scope supersession relation，不能从 timestamp、append order 或相似文本推断。Slice 7 保留这一 Domain invariant，但不通过 Application command 暴露 supersession；未来调用方必须先提供权威 actor/approval 或 decision-source lineage。Protected entry 始终 inline。只有 eligible non-protected entry 可以替换为 typed ArtifactReference，且 reference 必须包含 source package/entry identity 与 exact content hash；任何 entry 都不能在没有明确 compaction decision 的情况下消失。
+
+Local ArtifactStore 只持久化已经由 source ContextPackage 完成 redaction 的内容。Artifact ID 使用 content-addressed identity；写入通过同目录唯一 temporary file 原子发布，崩溃写入者的残留不会阻断后续写入。每次 read/write 都验证或安全收紧 root 为 `0700`、artifact file 为 `0600`；symlink、非普通文件与无法验证的权限必须 fail closed。Rehydration 返回内容前验证 identity、hash、source scope 与 size。稳定、source-scoped 的 ArtifactReference 可以被多个 immutable RuntimeContextSnapshot 复用；snapshot entry 引用它，而不声明 exclusive ownership。SQLite 继续作为 RuntimeContextSnapshot、Artifact metadata、reference 与 compaction lineage 的 authority。Artifact bytes 是 rebuildable derivative，不能建立 Candidate fact。
+
 ## 11. Memory 与 Capability Plane
 
 必须区分：
@@ -433,6 +437,8 @@ Requirement Parsing 与 QuickScreen 在 Human Job Triage 前由普通 Applicatio
 
 两个 Human Gate 使用不同的持久化机制：Job Triage 是 Application/Domain workflow checkpoint，负责 `Screened → Shortlisted/Skipped`；Material Review 是 LangGraph interrupt/checkpoint，负责 validated material 到 Approved/Revision Requested。两者都必须支持 durable resume 和审计，但不能为了统一形式把 Job Triage 强行塞入 LangGraph。
 
+在 DeepFit 与 material capability 尚不存在时，Slice 7 只实现真实的 context-preparation prefix：现有 RetrieveEvidence → 现有 ContextBuilder → RuntimeContextManager。Typed graph 终止于 `CONTEXT_READY`，或明确的 no/insufficient-evidence、budget、policy、dependency outcome。LangGraph 构造和调用失败会转换为相同的稳定、脱敏 dependency outcome；第三方异常文本不得进入 graph state。它不包含 placeholder DeepFit、Draft、Validate、Repair、Approval 或 browser node。Durable Material Review interrupt/checkpoint semantics 仍由后续 material slice 负责。
+
 ### 12.2 Structured Output
 
 Job Hunter 使用 LangChain 现有模型接口，不重新封装供应商 SDK。ModelProfile/Factory 声明 provider、model、credential reference、base URL、timeout 和必要参数。MVP 正式回归一个 primary provider/model，允许显式配置切换 LangChain-supported provider，但不实现自动 fallback 或动态 routing。
@@ -444,6 +450,8 @@ Job Hunter 使用 LangChain 现有模型接口，不重新封装供应商 SDK。
 每个 node 声明 NodeToolPolicy：allowed tools、resource scope、max calls/iterations、timeout、token/cost/result-size budget 和 side-effect class。
 
 工具按 `READ_ONLY`、`LOCAL_REVERSIBLE_WRITE`、`LOCAL_PERSISTENT_WRITE`、`EXTERNAL_SIDE_EFFECT` 分类。普通 tool loop 只允许预授权的 read/local capability；external side effect 永不进入 Graph。
+
+Slice 7 policy 只覆盖 `retrieve_evidence`、`build_context_package` 与 `prepare_runtime_context`。代码在调用前检查 authorization、scope、call/iteration 与 input budget。Cooperative deadline/result-size guard 会在 Artifact 写入前以及 UnitOfWork commit 前检查 application execution，因此 pre-commit overrun 会回滚权威状态。同步 commit 本身可能跨过 deadline，且不能安全中断；此时必须记录 completed、committed overrun、已提交资源 identity 与实际 elapsed/result usage，再停止下游执行，不能伪称 commit 已回滚。Per-run ledger 明确区分 attempted、completed、committed 与 failed-before-commit call。Prompt 不能授予 capability。Graph 不获得 dynamic registry、Shell、browser、external messaging、arbitrary filesystem 或 arbitrary SQL capability。
 
 ### 12.4 Validation and Repair
 

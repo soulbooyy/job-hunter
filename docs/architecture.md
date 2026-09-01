@@ -402,6 +402,10 @@ A versioned CompactionPolicy controls deterministic deduplication, obsolete-entr
 
 Compaction changes only the representation visible to the model. It never changes Candidate Knowledge, User Preferences, or domain authority.
 
+`runtime-context-policy-v1` consumes one immutable ContextPackage and produces a separate immutable RuntimeContextSnapshot; it never edits or replaces the source package. Runtime entries add priority, retention, source ordinal, and rehydration metadata around the frozen ContextEntry. Exact duplicate elimination retains every source ordinal in provenance. Obsolete elimination requires an explicit same-scope supersession relation and never infers staleness from timestamps, append order, or similar text. Slice 7 retains this Domain invariant but does not expose supersession through its Application command: a future caller must first provide an authoritative actor/approval or decision-source lineage. Protected entries remain inline. Eligible non-protected entries may be replaced only by a typed ArtifactReference containing the source package/entry identity and exact content hash; no entry disappears without an explicit compaction decision.
+
+The local ArtifactStore persists only content already redacted by the source ContextPackage. Artifact identifiers are content-addressed, writes use unique same-directory temporary files plus atomic publication, and a crashed writer's residue cannot block later writes. Every read and write validates or safely tightens the root to `0700` and artifact files to `0600`; symlinks, non-regular targets, and unverifiable permissions fail closed. Rehydration verifies identity, hash, source scope, and size before returning content. A stable source-scoped ArtifactReference may be reused by multiple immutable RuntimeContextSnapshots; snapshot entries reference it rather than claiming exclusive ownership. SQLite remains authoritative for RuntimeContextSnapshot, Artifact metadata, references, and compaction lineage. Artifact bytes are rebuildable derivatives and cannot establish Candidate facts.
+
 ## 11. Memory and Capability Plane
 
 Keep these concepts distinct:
@@ -435,6 +439,8 @@ Requirement Parsing and QuickScreen run before Human Job Triage as ordinary Appl
 
 The two Human Gates use different durable mechanisms. Job Triage is an Application/Domain checkpoint for `Screened → Shortlisted/Skipped`. Material Review is a LangGraph interrupt/checkpoint for validated materials. Both support durable resume and audit, but Job Triage is not forced into LangGraph for cosmetic uniformity.
 
+Before DeepFit and material capabilities exist, Slice 7 implements only the concrete context-preparation prefix: existing RetrieveEvidence → existing ContextBuilder → RuntimeContextManager. The typed graph terminates at `CONTEXT_READY` or an explicit no/insufficient-evidence, budget, policy, or dependency outcome. LangGraph construction and invocation failures are translated to the same stable, redacted dependency outcome; third-party exception text never enters graph state. It contains no placeholder DeepFit, Draft, Validate, Repair, Approval, or browser nodes. Durable Material Review interrupt/checkpoint semantics remain owned by the later material slice.
+
 ### 12.2 Structured Output
 
 Job Hunter uses the existing LangChain model interface rather than rewrapping provider SDKs. ModelProfile/Factory declares provider, model, credential reference, base URL, timeout, and necessary parameters. MVP formally tests one primary provider/model and permits explicit configuration-driven switching to supported providers. Automatic fallback and dynamic routing are excluded.
@@ -446,6 +452,8 @@ Every model output entering domain state passes a Pydantic structured-output con
 Every node declares a NodeToolPolicy: allowed tools, resource scope, maximum calls/iterations, timeout, token/cost/result-size budget, and side-effect class.
 
 Tools are classified as `READ_ONLY`, `LOCAL_REVERSIBLE_WRITE`, `LOCAL_PERSISTENT_WRITE`, or `EXTERNAL_SIDE_EFFECT`. Normal tool loops receive only pre-authorized read/local capabilities. External side effects never enter the Graph.
+
+Slice 7 policies cover only `retrieve_evidence`, `build_context_package`, and `prepare_runtime_context`. Code enforces authorization, scope, call/iteration, and input budgets before invocation. A cooperative deadline/result-size guard checks application execution before Artifact writes and before UnitOfWork commit, so a pre-commit overrun rolls back authoritative state. A synchronous commit may itself cross a deadline and cannot be safely interrupted; that case is recorded as a completed, committed overrun with its resource identity and actual elapsed/result usage, then stops downstream execution rather than pretending the commit was rolled back. Attempted, completed, committed, and failed-before-commit calls remain distinct in the per-run ledger. Prompts cannot grant capabilities. The graph receives no dynamic registry, Shell, browser, external messaging, arbitrary filesystem, or arbitrary SQL capability.
 
 ### 12.4 Validation and Repair
 

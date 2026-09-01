@@ -90,6 +90,8 @@ Read-model test 必须覆盖 deterministic ordering、active pointer、immutable
 
 先测试 typed state、legal/illegal routes、conditional repair、interrupt/checkpoint/resume 和预算。使用 FakeModel、FakeTool、FixedClock 与 DeterministicIdGenerator。单元/集成测试不得依赖真实 provider。
 
+同步 persistent capability 必须在 commit 前协作式检查 deadline 与 result-size limit。Commit 后观察到 deadline 超限时，必须保留已提交 resource identity 并记录 attempted/completed/committed usage，不能报告为 rollback。Graph library 的构造和调用异常必须在 workflow boundary 转换，且不得保留原始异常文本。
+
 ### 5.4 RAG、Prompt 与 LLM
 
 采用 evaluation-driven development：
@@ -218,6 +220,7 @@ Fake model、domain、contract、workflow、repository、rendering invariants、
 ./scripts/semantic-check 在隔离 locked 环境验证 optional adapter
 ./scripts/semantic-setup 显式获取并校验固定版本的本地 ONNX 模型
 ./scripts/hybrid-eval    显式运行本地模型 synthetic Hybrid evaluation
+./scripts/context-eval   运行 deterministic synthetic RuntimeContext mechanics evaluation
 ./scripts/eval-live      explicit live evaluation; never implicit
 ```
 

@@ -90,6 +90,8 @@ Read-model tests must cover deterministic ordering, active pointers, immutable h
 
 Test typed state, legal and illegal routes, conditional repair, interrupt/checkpoint/resume, and budgets before implementation. Use FakeModel, FakeTool, FixedClock, and DeterministicIdGenerator. Unit and integration tests must not depend on a live provider.
 
+For synchronous persistent capabilities, enforce deadlines and result-size limits cooperatively before commit. A post-commit deadline observation must preserve the committed resource identity and record attempted/completed/committed usage; it cannot be reported as a rollback. Translate graph-library construction and invocation exceptions at the workflow boundary without retaining raw exception text.
+
 ### 5.4 RAG, Prompts, and LLMs
 
 Use evaluation-driven development:
@@ -220,6 +222,7 @@ The repository root must provide stable wrapper commands. Their underlying imple
 ./scripts/semantic-check verify the optional adapter in an isolated locked environment
 ./scripts/semantic-setup explicitly acquire and verify the pinned local ONNX model
 ./scripts/hybrid-eval    run explicit local-model synthetic Hybrid evaluation
+./scripts/context-eval   run deterministic synthetic RuntimeContext mechanics evaluation
 ./scripts/eval-live      run explicit live evaluation; never implicit
 ```
 
