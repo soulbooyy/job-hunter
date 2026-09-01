@@ -13,6 +13,12 @@ from sqlalchemy import text
 from job_hunter.api.app import create_app
 from job_hunter.application.context import BuildContextPackage, BuildContextPackageCommand
 from job_hunter.application.retrieval import RetrieveEvidence, RetrieveEvidenceCommand
+from job_hunter.application.runtime_context import (
+    PrepareRuntimeContext,
+    PrepareRuntimeContextCommand,
+    RehydrateContextReference,
+    RehydrateContextReferenceCommand,
+)
 from job_hunter.config import RuntimeSettings
 from job_hunter.domain.ids import (
     CandidateProfileId,
@@ -25,6 +31,7 @@ from job_hunter.domain.ids import (
     RequirementId,
     RetrievalRunId,
     RunId,
+    RuntimeContextId,
     SourceSnapshotId,
     TriageDecisionId,
 )
@@ -51,14 +58,17 @@ from job_hunter.domain.retrieval import (
     RetrievalRun,
     RetrievalStatus,
     RetrievalStrategy,
+    estimate_tokens,
 )
 from job_hunter.domain.screening import JobTriageRecord, TriageDecision
 from job_hunter.errors import (
+    BudgetExceededError,
     ConflictError,
     DependencyUnavailableError,
     EntityNotFoundError,
     StaleWriteError,
 )
+from job_hunter.infrastructure.artifacts import LocalArtifactStore
 from job_hunter.infrastructure.persistence.database import (
     DatabaseRuntime,
     create_database_runtime,
@@ -71,6 +81,15 @@ from job_hunter.infrastructure.retrieval import FullContextRetriever
 from tests.helpers import DeterministicIdGenerator, FixedClock, build_test_use_cases
 
 NOW = datetime(2026, 8, 31, 9, 0, tzinfo=UTC)
+
+
+class _RejectCommitGuard:
+    def check(self) -> None:
+        pass
+
+    def check_before_commit(self, *, result_bytes: int) -> None:
+        assert result_bytes > 0
+        raise BudgetExceededError("workflow timeout budget exceeded")
 
 
 class _ReverseScreenIdGenerator(DeterministicIdGenerator):
@@ -159,6 +178,11 @@ def test_empty_database_upgrades_to_current_head_idempotently(tmp_path: Path) ->
             "context_package_requirements",
             "context_package_evidence",
             "context_package_exclusions",
+            "runtime_contexts",
+            "runtime_context_entries",
+            "runtime_artifacts",
+            "runtime_context_references",
+            "runtime_context_decisions",
         }
     finally:
         runtime.dispose()
@@ -296,6 +320,69 @@ def test_workspace_survives_application_lifespan_restart(tmp_path: Path) -> None
                 run_id=RunId("run-context-missing-requirement"),
             )
         )
+        runtime_source_context = context_builder.execute(
+            BuildContextPackageCommand(
+                retrieval_run_id=retrieval.retrieval_run_id,
+                task_instruction="Assess only evidence-grounded fit.",
+                workflow_identity="context-preparation",
+                max_tokens=200,
+                correlation_id=CorrelationId("correlation-context-runtime-source"),
+                run_id=RunId("run-context-runtime-source"),
+            )
+        )
+        source_uow = SqlAlchemyUnitOfWorkFactory(database.session_factory)()
+        source_package = source_uow.context.get_package(runtime_source_context.context_package_id)
+        source_uow.close()
+        protected_tokens = source_package.packaging_overhead_tokens + sum(
+            entry.estimated_tokens for entry in source_package.entries if entry.protected
+        )
+        artifact_store = LocalArtifactStore(tmp_path / "runtime-artifacts")
+        runtime_preparer = PrepareRuntimeContext(
+            unit_of_work_factory=SqlAlchemyUnitOfWorkFactory(database.session_factory),
+            artifact_store=artifact_store,
+            clock=FixedClock(NOW),
+            id_generator=DeterministicIdGenerator(),
+        )
+        prepared_runtime = runtime_preparer.execute(
+            PrepareRuntimeContextCommand(
+                context_package_id=runtime_source_context.context_package_id,
+                max_tokens=protected_tokens
+                + estimate_tokens(f"ArtifactReference artifact-{'0' * 64}"),
+                correlation_id=CorrelationId("correlation-runtime"),
+                run_id=RunId("run-runtime"),
+            )
+        )
+        assert prepared_runtime.artifact_count == 1
+        repeated_runtime = runtime_preparer.execute(
+            PrepareRuntimeContextCommand(
+                context_package_id=runtime_source_context.context_package_id,
+                max_tokens=protected_tokens
+                + estimate_tokens(f"ArtifactReference artifact-{'0' * 64}"),
+                correlation_id=CorrelationId("correlation-runtime-repeat"),
+                run_id=RunId("run-runtime-repeat"),
+            )
+        )
+        with pytest.raises(BudgetExceededError):
+            runtime_preparer.execute(
+                PrepareRuntimeContextCommand(
+                    context_package_id=runtime_source_context.context_package_id,
+                    max_tokens=protected_tokens
+                    + estimate_tokens(f"ArtifactReference artifact-{'0' * 64}"),
+                    correlation_id=CorrelationId("correlation-runtime-budget"),
+                    run_id=RunId("run-runtime-budget"),
+                ),
+                execution_guard=_RejectCommitGuard(),
+            )
+        budget_verification = SqlAlchemyUnitOfWorkFactory(database.session_factory)()
+        assert (
+            len(
+                budget_verification.runtime_context.list_snapshots(
+                    runtime_source_context.context_package_id
+                )
+            )
+            == 2
+        )
+        budget_verification.close()
 
     with TestClient(create_app(settings=settings)) as second:
         jobs = second.get("/api/v1/jobs")
@@ -337,8 +424,93 @@ def test_workspace_survives_application_lifespan_restart(tmp_path: Path) -> None
         )
         assert len(stored_excluded_context.exclusions) == 1
         assert all(entry.kind.value != "evidence" for entry in stored_excluded_context.entries)
+        stored_runtime = verification.runtime_context.get_snapshot(
+            prepared_runtime.runtime_context_id
+        )
+        reference_id = stored_runtime.entries[-1].reference_id
+        assert reference_id is not None
+        repeated_snapshot = verification.runtime_context.get_snapshot(
+            repeated_runtime.runtime_context_id
+        )
+        assert repeated_snapshot.entries[-1].reference_id == reference_id
+        assert (
+            len(
+                verification.runtime_context.list_snapshots(
+                    runtime_source_context.context_package_id
+                )
+            )
+            == 2
+        )
     finally:
         verification.close()
+
+    rehydrated = RehydrateContextReference(
+        unit_of_work_factory=SqlAlchemyUnitOfWorkFactory(reopened.session_factory),
+        artifact_store=artifact_store,
+    ).execute(
+        RehydrateContextReferenceCommand(
+            runtime_context_id=prepared_runtime.runtime_context_id,
+            reference_id=reference_id,
+        )
+    )
+    assert rehydrated.content == source_package.entries[-1].content
+
+    with reopened.engine.begin() as connection:
+        connection.execute(
+            text(
+                "UPDATE runtime_context_entries SET content_hash = :content_hash "
+                "WHERE runtime_context_id = :runtime_context_id AND reference_id IS NOT NULL"
+            ),
+            {
+                "content_hash": hashlib.sha256(b"fabricated runtime fact").hexdigest(),
+                "runtime_context_id": str(prepared_runtime.runtime_context_id),
+            },
+        )
+    corrupted_runtime = SqlAlchemyUnitOfWorkFactory(reopened.session_factory)()
+    try:
+        with pytest.raises(DependencyUnavailableError, match="persisted state is invalid"):
+            corrupted_runtime.runtime_context.get_snapshot(
+                RuntimeContextId(str(prepared_runtime.runtime_context_id))
+            )
+    finally:
+        corrupted_runtime.close()
+
+    with reopened.engine.begin() as connection:
+        runtime_payload = connection.execute(
+            text(
+                "SELECT payload FROM runtime_contexts "
+                "WHERE runtime_context_id = :runtime_context_id"
+            ),
+            {"runtime_context_id": str(repeated_runtime.runtime_context_id)},
+        ).scalar_one()
+        assert isinstance(runtime_payload, str)
+        malformed_runtime = cast(dict[str, object], json.loads(runtime_payload))
+        decisions = cast(list[dict[str, object]], malformed_runtime["decisions"])
+        externalized = next(item for item in decisions if item["reason"] == "externalized")
+        externalized["reason"] = "retained"
+        connection.execute(
+            text(
+                "UPDATE runtime_context_decisions SET reason = 'retained' "
+                "WHERE runtime_context_id = :runtime_context_id AND reason = 'externalized'"
+            ),
+            {"runtime_context_id": str(repeated_runtime.runtime_context_id)},
+        )
+        connection.execute(
+            text(
+                "UPDATE runtime_contexts SET payload = :payload "
+                "WHERE runtime_context_id = :runtime_context_id"
+            ),
+            {
+                "payload": json.dumps(malformed_runtime),
+                "runtime_context_id": str(repeated_runtime.runtime_context_id),
+            },
+        )
+    corrupted_decision = SqlAlchemyUnitOfWorkFactory(reopened.session_factory)()
+    try:
+        with pytest.raises(DependencyUnavailableError, match="persisted state is invalid"):
+            corrupted_decision.runtime_context.get_snapshot(repeated_runtime.runtime_context_id)
+    finally:
+        corrupted_decision.close()
 
     with reopened.engine.begin() as connection:
         context_payload = connection.execute(

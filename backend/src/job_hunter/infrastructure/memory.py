@@ -7,13 +7,16 @@ from job_hunter.application.ports import (
     ContextRepository,
     JobRepository,
     RetrievalRepository,
+    RuntimeContextRepository,
+    RuntimeContextUnitOfWork,
     ScreeningRepository,
-    UnitOfWork,
 )
 from job_hunter.domain.context import ContextPackage
 from job_hunter.domain.ids import (
+    ArtifactId,
     CandidateProfileId,
     ContextPackageId,
+    ContextReferenceId,
     EvidenceItemId,
     EvidenceVersionId,
     JobId,
@@ -21,12 +24,19 @@ from job_hunter.domain.ids import (
     QuickScreenResultId,
     RequirementId,
     RetrievalRunId,
+    RuntimeContextId,
     SourceSnapshotId,
     TriageDecisionId,
 )
 from job_hunter.domain.jobs import Job, JobVersion, SourceSnapshot
 from job_hunter.domain.knowledge import CandidateProfile, EvidenceItem, EvidenceItemVersion
 from job_hunter.domain.retrieval import RetrievalRun
+from job_hunter.domain.runtime_context import (
+    ArtifactRecord,
+    ArtifactReference,
+    RuntimeContextPlan,
+    RuntimeContextSnapshot,
+)
 from job_hunter.domain.screening import JobTriageRecord, ParsedRequirement, QuickScreenResult
 from job_hunter.errors import ConflictError, EntityNotFoundError
 
@@ -50,6 +60,10 @@ class _MemoryState:
     retrieval_run_ids_by_requirement: dict[RequirementId, tuple[RetrievalRunId, ...]]
     context_packages: dict[ContextPackageId, ContextPackage]
     context_package_ids_by_retrieval: dict[RetrievalRunId, tuple[ContextPackageId, ...]]
+    runtime_contexts: dict[RuntimeContextId, RuntimeContextSnapshot]
+    runtime_context_ids_by_package: dict[ContextPackageId, tuple[RuntimeContextId, ...]]
+    artifacts: dict[ArtifactId, ArtifactRecord]
+    artifact_references: dict[ContextReferenceId, ArtifactReference]
 
     def copy(self) -> "_MemoryState":
         # Frozen domain values make shallow copies sufficient. Copying every index
@@ -72,6 +86,10 @@ class _MemoryState:
             retrieval_run_ids_by_requirement=dict(self.retrieval_run_ids_by_requirement),
             context_packages=dict(self.context_packages),
             context_package_ids_by_retrieval=dict(self.context_package_ids_by_retrieval),
+            runtime_contexts=dict(self.runtime_contexts),
+            runtime_context_ids_by_package=dict(self.runtime_context_ids_by_package),
+            artifacts=dict(self.artifacts),
+            artifact_references=dict(self.artifact_references),
         )
 
 
@@ -94,6 +112,10 @@ def _empty_state() -> _MemoryState:
         retrieval_run_ids_by_requirement={},
         context_packages={},
         context_package_ids_by_retrieval={},
+        runtime_contexts={},
+        runtime_context_ids_by_package={},
+        artifacts={},
+        artifact_references={},
     )
 
 
@@ -391,7 +413,59 @@ class _InMemoryContextRepository(ContextRepository):
         )
 
 
-class _InMemoryUnitOfWork(UnitOfWork):
+class _InMemoryRuntimeContextRepository(RuntimeContextRepository):
+    def __init__(self, state: _MemoryState) -> None:
+        self._state = state
+
+    def get_snapshot(self, runtime_context_id: RuntimeContextId) -> RuntimeContextSnapshot:
+        try:
+            return self._state.runtime_contexts[runtime_context_id]
+        except KeyError:
+            raise EntityNotFoundError(f"runtime context not found: {runtime_context_id}") from None
+
+    def list_snapshots(
+        self, context_package_id: ContextPackageId
+    ) -> tuple[RuntimeContextSnapshot, ...]:
+        snapshot_ids = self._state.runtime_context_ids_by_package.get(context_package_id, ())
+        return tuple(self._state.runtime_contexts[item] for item in snapshot_ids)
+
+    def get_artifact(self, artifact_id: ArtifactId) -> ArtifactRecord:
+        try:
+            return self._state.artifacts[artifact_id]
+        except KeyError:
+            raise EntityNotFoundError(f"runtime artifact not found: {artifact_id}") from None
+
+    def get_reference(self, reference_id: ContextReferenceId) -> ArtifactReference:
+        try:
+            return self._state.artifact_references[reference_id]
+        except KeyError:
+            raise EntityNotFoundError(f"context reference not found: {reference_id}") from None
+
+    def add_plan(self, plan: RuntimeContextPlan) -> None:
+        snapshot = plan.snapshot
+        if snapshot.runtime_context_id in self._state.runtime_contexts:
+            raise ConflictError(f"runtime context already exists: {snapshot.runtime_context_id}")
+        for planned in plan.artifacts:
+            existing = self._state.artifacts.get(planned.record.artifact_id)
+            if existing is not None and existing != planned.record:
+                raise ConflictError("runtime artifact metadata conflicts")
+            if planned.reference.reference_id in self._state.artifact_references:
+                raise ConflictError(
+                    f"context reference already exists: {planned.reference.reference_id}"
+                )
+            self._state.artifacts[planned.record.artifact_id] = planned.record
+            self._state.artifact_references[planned.reference.reference_id] = planned.reference
+        self._state.runtime_contexts[snapshot.runtime_context_id] = snapshot
+        existing_ids = self._state.runtime_context_ids_by_package.get(
+            snapshot.context_package_id, ()
+        )
+        self._state.runtime_context_ids_by_package[snapshot.context_package_id] = (
+            *existing_ids,
+            snapshot.runtime_context_id,
+        )
+
+
+class _InMemoryUnitOfWork(RuntimeContextUnitOfWork):
     def __init__(self, store: InMemoryStore) -> None:
         self._store = store
         self._state = store.copy_state()
@@ -400,6 +474,7 @@ class _InMemoryUnitOfWork(UnitOfWork):
         self._screening = _InMemoryScreeningRepository(self._state)
         self._retrieval = _InMemoryRetrievalRepository(self._state)
         self._context = _InMemoryContextRepository(self._state)
+        self._runtime_context = _InMemoryRuntimeContextRepository(self._state)
 
     @property
     def jobs(self) -> JobRepository:
@@ -421,6 +496,10 @@ class _InMemoryUnitOfWork(UnitOfWork):
     def context(self) -> ContextRepository:
         return self._context
 
+    @property
+    def runtime_context(self) -> RuntimeContextRepository:
+        return self._runtime_context
+
     def commit(self) -> None:
         # All aggregate and lineage indexes move together; this is atomic only for a
         # single writer and deliberately does not claim concurrent isolation.
@@ -437,5 +516,5 @@ class InMemoryUnitOfWorkFactory:
     def __init__(self, store: InMemoryStore) -> None:
         self._store = store
 
-    def __call__(self) -> UnitOfWork:
+    def __call__(self) -> RuntimeContextUnitOfWork:
         return _InMemoryUnitOfWork(self._store)

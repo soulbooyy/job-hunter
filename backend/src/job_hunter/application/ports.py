@@ -5,8 +5,10 @@ from typing import Protocol
 
 from job_hunter.domain.context import ContextPackage
 from job_hunter.domain.ids import (
+    ArtifactId,
     CandidateProfileId,
     ContextPackageId,
+    ContextReferenceId,
     EvidenceItemId,
     EvidenceVersionId,
     JobId,
@@ -14,6 +16,7 @@ from job_hunter.domain.ids import (
     QuickScreenResultId,
     RequirementId,
     RetrievalRunId,
+    RuntimeContextId,
     SourceReferenceId,
     SourceSnapshotId,
     TriageDecisionId,
@@ -32,6 +35,12 @@ from job_hunter.domain.retrieval import (
     RetrieverResult,
     SemanticChunkMatch,
     SemanticIndexRecord,
+)
+from job_hunter.domain.runtime_context import (
+    ArtifactRecord,
+    ArtifactReference,
+    RuntimeContextPlan,
+    RuntimeContextSnapshot,
 )
 from job_hunter.domain.screening import JobTriageRecord, ParsedRequirement, QuickScreenResult
 
@@ -64,6 +73,22 @@ class IdGenerator(Protocol):
     def new_retrieval_run_id(self) -> RetrievalRunId: ...
 
     def new_context_package_id(self) -> ContextPackageId: ...
+
+    def new_runtime_context_id(self) -> RuntimeContextId: ...
+
+
+class ArtifactStore(Protocol):
+    def write(self, record: ArtifactRecord, content: str) -> None: ...
+
+    def read(self, record: ArtifactRecord) -> str: ...
+
+
+class CapabilityExecutionGuard(Protocol):
+    """Cooperative pre-commit checks supplied by a governed workflow."""
+
+    def check(self) -> None: ...
+
+    def check_before_commit(self, *, result_bytes: int) -> None: ...
 
 
 class EvidenceRetriever(Protocol):
@@ -201,6 +226,20 @@ class ContextRepository(Protocol):
     def add_package(self, package: ContextPackage) -> None: ...
 
 
+class RuntimeContextRepository(Protocol):
+    def get_snapshot(self, runtime_context_id: RuntimeContextId) -> RuntimeContextSnapshot: ...
+
+    def list_snapshots(
+        self, context_package_id: ContextPackageId
+    ) -> tuple[RuntimeContextSnapshot, ...]: ...
+
+    def get_artifact(self, artifact_id: ArtifactId) -> ArtifactRecord: ...
+
+    def get_reference(self, reference_id: ContextReferenceId) -> ArtifactReference: ...
+
+    def add_plan(self, plan: RuntimeContextPlan) -> None: ...
+
+
 class UnitOfWork(Protocol):
     @property
     def jobs(self) -> JobRepository: ...
@@ -226,3 +265,12 @@ class UnitOfWork(Protocol):
 
 class UnitOfWorkFactory(Protocol):
     def __call__(self) -> UnitOfWork: ...
+
+
+class RuntimeContextUnitOfWork(UnitOfWork, Protocol):
+    @property
+    def runtime_context(self) -> RuntimeContextRepository: ...
+
+
+class RuntimeContextUnitOfWorkFactory(Protocol):
+    def __call__(self) -> RuntimeContextUnitOfWork: ...

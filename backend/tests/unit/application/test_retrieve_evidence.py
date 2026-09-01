@@ -62,6 +62,7 @@ from job_hunter.domain.retrieval import (
 )
 from job_hunter.domain.screening import TriageDecision
 from job_hunter.errors import (
+    BudgetExceededError,
     ConflictError,
     ContextBudgetExceededError,
     DependencyUnavailableError,
@@ -77,6 +78,27 @@ from job_hunter.ingestion.manual import JobSourceRegistry, ManualJDInput, Manual
 from tests.helpers import DeterministicIdGenerator, FixedClock
 
 NOW = datetime(2026, 8, 30, 10, 0, tzinfo=UTC)
+
+
+class _RejectCommitGuard:
+    def check(self) -> None:
+        pass
+
+    def check_before_commit(self, *, result_bytes: int) -> None:
+        assert result_bytes > 0
+        raise BudgetExceededError("workflow timeout budget exceeded")
+
+
+class _RecordingGuard:
+    def __init__(self) -> None:
+        self.checks = 0
+        self.result_bytes = 0
+
+    def check(self) -> None:
+        self.checks += 1
+
+    def check_before_commit(self, *, result_bytes: int) -> None:
+        self.result_bytes = result_bytes
 
 
 class _FailingRetriever:
@@ -581,6 +603,41 @@ def test_retrieve_evidence_persists_authoritative_lineage_and_exclusions() -> No
     assert stored.run_id == RunId("run-retrieve")
 
 
+def test_retrieval_guard_rejects_before_retrieval_run_commit() -> None:
+    store = InMemoryStore()
+    factory = InMemoryUnitOfWorkFactory(store)
+    ids = DeterministicIdGenerator()
+    job_id = _import_job(factory, ids)
+    requirement_id = _shortlist(factory, ids, job_id)
+    _save_evidence(
+        factory,
+        ids,
+        content="Built a Python evaluation pipeline",
+        sensitivity=EvidenceSensitivity.PUBLIC,
+        validity=EvidenceValidity.VALID,
+    )
+
+    with pytest.raises(BudgetExceededError):
+        RetrieveEvidence(
+            unit_of_work_factory=factory,
+            retriever=FullContextRetriever(),
+            clock=FixedClock(NOW),
+            id_generator=ids,
+        ).execute(
+            RetrieveEvidenceCommand(
+                requirement_id=requirement_id,
+                allowed_sensitivities=(EvidenceSensitivity.PUBLIC,),
+                max_tokens=100,
+                top_k=5,
+                correlation_id=CorrelationId("correlation-retrieve-budget"),
+                run_id=RunId("run-retrieve-budget"),
+            ),
+            execution_guard=_RejectCommitGuard(),
+        )
+
+    assert store.list_retrieval_runs(requirement_id) == ()
+
+
 def test_retrieve_evidence_requires_shortlisted_current_job_version() -> None:
     store = InMemoryStore()
     factory = InMemoryUnitOfWorkFactory(store)
@@ -878,6 +935,7 @@ def test_context_builder_persists_exact_redacted_budgeted_lineage() -> None:
         )
     )
 
+    guard = _RecordingGuard()
     result = BuildContextPackage(
         unit_of_work_factory=factory,
         clock=FixedClock(NOW),
@@ -890,7 +948,8 @@ def test_context_builder_persists_exact_redacted_budgeted_lineage() -> None:
             max_tokens=200,
             correlation_id=CorrelationId("correlation-context"),
             run_id=RunId("run-context"),
-        )
+        ),
+        execution_guard=guard,
     )
 
     stored = store.get_context_package(result.context_package_id)
@@ -919,6 +978,8 @@ def test_context_builder_persists_exact_redacted_budgeted_lineage() -> None:
         entry for entry in stored.entries if entry.kind is ContextEntryKind.PROFILE
     )
     assert profile_entry.redaction is ContextRedaction.APPLIED
+    assert guard.checks == 1
+    assert guard.result_bytes > 0
 
 
 def test_context_builder_fails_closed_when_protected_content_exceeds_budget() -> None:

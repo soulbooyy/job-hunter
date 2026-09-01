@@ -1,0 +1,19 @@
+{
+  "dataset_version": "context-runtime-synthetic-v1",
+  "policy_version": "runtime-context-policy-v1",
+  "case_count": 2,
+  "protected_loss_count": 0,
+  "reference_rehydration_accuracy": 1.0,
+  "provenance_accuracy": 1.0,
+  "unsupported_fact_count": 0,
+  "silent_truncation_count": 0,
+  "source_estimated_tokens": 244,
+  "runtime_estimated_tokens": 42,
+  "token_reduction": 0.8278688524590164,
+  "evidence_lineage_coverage": 1.0,
+  "effective_evidence_recall_degradation": null,
+  "workflow_completion_degradation": null,
+  "mechanics_gate_passed": true,
+  "product_quality_claim": false,
+  "limitation": "Synthetic fixtures validate deterministic runtime-context mechanics only; they do not evaluate downstream model or workflow quality."
+}

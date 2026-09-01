@@ -424,3 +424,87 @@ class ContextPackageExclusionRow(Base):
     evidence_chunk_id: Mapped[str] = mapped_column(Text, nullable=False)
     reason: Mapped[str] = mapped_column(Text, nullable=False)
     ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class RuntimeContextRow(Base):
+    __tablename__ = "runtime_contexts"
+    __table_args__ = (
+        Index(
+            "ux_runtime_contexts_context_package",
+            "runtime_context_id",
+            "context_package_id",
+            unique=True,
+        ),
+        ForeignKeyConstraint(
+            ("context_package_id", "job_version_id"),
+            ("context_packages.context_package_id", "context_packages.job_version_id"),
+        ),
+    )
+
+    sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    runtime_context_id: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    context_package_id: Mapped[str] = mapped_column(Text, nullable=False, index=True)
+    job_version_id: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[str] = mapped_column(Text, nullable=False)
+    payload: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class RuntimeContextEntryRow(Base):
+    __tablename__ = "runtime_context_entries"
+    __table_args__ = (UniqueConstraint("runtime_context_id", "ordinal"),)
+
+    association_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    runtime_context_id: Mapped[str] = mapped_column(
+        ForeignKey("runtime_contexts.runtime_context_id"), nullable=False, index=True
+    )
+    ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
+    kind: Mapped[str] = mapped_column(Text, nullable=False)
+    source_ordinals: Mapped[str] = mapped_column(Text, nullable=False)
+    content_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    reference_id: Mapped[str | None] = mapped_column(
+        ForeignKey("runtime_context_references.reference_id"), nullable=True
+    )
+    estimated_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
+    protected: Mapped[int] = mapped_column(Integer, nullable=False)
+    priority: Mapped[str] = mapped_column(Text, nullable=False)
+    retention_class: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class RuntimeArtifactRow(Base):
+    __tablename__ = "runtime_artifacts"
+
+    artifact_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    content_hash: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    byte_size: Mapped[int] = mapped_column(Integer, nullable=False)
+    estimated_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
+    policy_version: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class RuntimeContextReferenceRow(Base):
+    __tablename__ = "runtime_context_references"
+
+    reference_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    artifact_id: Mapped[str] = mapped_column(
+        ForeignKey("runtime_artifacts.artifact_id"), nullable=False
+    )
+    context_package_id: Mapped[str] = mapped_column(
+        ForeignKey("context_packages.context_package_id"), nullable=False
+    )
+    source_ordinals: Mapped[str] = mapped_column(Text, nullable=False)
+    content_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    source_estimated_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
+    reference_estimated_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class RuntimeContextDecisionRow(Base):
+    __tablename__ = "runtime_context_decisions"
+    __table_args__ = (UniqueConstraint("runtime_context_id", "ordinal"),)
+
+    association_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    runtime_context_id: Mapped[str] = mapped_column(
+        ForeignKey("runtime_contexts.runtime_context_id"), nullable=False, index=True
+    )
+    ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
+    source_ordinals: Mapped[str] = mapped_column(Text, nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    retained_source_ordinals: Mapped[str] = mapped_column(Text, nullable=False)

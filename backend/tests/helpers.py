@@ -17,6 +17,7 @@ from job_hunter.domain.ids import (
     QuickScreenResultId,
     RequirementId,
     RetrievalRunId,
+    RuntimeContextId,
     SourceReferenceId,
     SourceSnapshotId,
     TriageDecisionId,
@@ -81,6 +82,9 @@ class DeterministicIdGenerator:
 
     def new_context_package_id(self) -> ContextPackageId:
         return ContextPackageId(self._next("context-package"))
+
+    def new_runtime_context_id(self) -> RuntimeContextId:
+        return RuntimeContextId(self._next("runtime-context"))
 
 
 def build_test_use_cases(

@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+cd "${repository_root}/backend"
+uv run --locked --no-sync python -m job_hunter.evaluation.context_cli \
+  --dataset "${repository_root}/evals/datasets/context-runtime-synthetic-v1.json" \
+  --output "${repository_root}/evals/reports/context-runtime-synthetic-v1.json"

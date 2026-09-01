@@ -1,6 +1,8 @@
 """SQL repositories that hydrate validated Domain values from authoritative rows."""
 
-from pydantic import TypeAdapter
+import json
+
+from pydantic import TypeAdapter, ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -9,6 +11,7 @@ from job_hunter.application.ports import (
     ContextRepository,
     JobRepository,
     RetrievalRepository,
+    RuntimeContextRepository,
     ScreeningRepository,
 )
 from job_hunter.domain.context import (
@@ -20,8 +23,10 @@ from job_hunter.domain.context import (
     redact_context_content,
 )
 from job_hunter.domain.ids import (
+    ArtifactId,
     CandidateProfileId,
     ContextPackageId,
+    ContextReferenceId,
     EvidenceItemId,
     EvidenceVersionId,
     JobId,
@@ -29,13 +34,31 @@ from job_hunter.domain.ids import (
     QuickScreenResultId,
     RequirementId,
     RetrievalRunId,
+    RuntimeContextId,
     SourceSnapshotId,
 )
 from job_hunter.domain.jobs import Job, JobVersion, SourceReference, SourceSnapshot
 from job_hunter.domain.knowledge import CandidateProfile, EvidenceItem, EvidenceItemVersion
 from job_hunter.domain.retrieval import DeterministicEvidenceChunker, RetrievalRun, estimate_tokens
+from job_hunter.domain.runtime_context import (
+    ArtifactRecord,
+    ArtifactReference,
+    CompactionDecision,
+    CompactionDecisionReason,
+    ContextSupersession,
+    RuntimeContextEntry,
+    RuntimeContextPlan,
+    RuntimeContextPolicy,
+    RuntimeContextSnapshot,
+)
 from job_hunter.domain.screening import JobTriageRecord, ParsedRequirement, QuickScreenResult
-from job_hunter.errors import ConflictError, DependencyUnavailableError, EntityNotFoundError
+from job_hunter.errors import (
+    ConflictError,
+    DependencyUnavailableError,
+    EntityNotFoundError,
+    InputValidationError,
+    JobHunterError,
+)
 from job_hunter.infrastructure.persistence.models import (
     CandidateProfileRow,
     CandidateProfileStateRow,
@@ -56,6 +79,11 @@ from job_hunter.infrastructure.persistence.models import (
     RetrievalRunHitChunkRow,
     RetrievalRunHitRow,
     RetrievalRunRow,
+    RuntimeArtifactRow,
+    RuntimeContextDecisionRow,
+    RuntimeContextEntryRow,
+    RuntimeContextReferenceRow,
+    RuntimeContextRow,
     SourceReferenceRow,
     SourceSnapshotRow,
 )
@@ -73,6 +101,8 @@ _SCREEN_RESULT = TypeAdapter(QuickScreenResult)
 _TRIAGE = TypeAdapter(JobTriageRecord)
 _RETRIEVAL_RUN = TypeAdapter(RetrievalRun)
 _CONTEXT_PACKAGE = TypeAdapter(ContextPackage)
+_RUNTIME_CONTEXT = TypeAdapter(RuntimeContextSnapshot)
+_ORDINALS = TypeAdapter(tuple[int, ...])
 
 
 def _invalid_state() -> DependencyUnavailableError:
@@ -968,5 +998,307 @@ class SqlAlchemyContextRepository(ContextRepository):
                     evidence_chunk_id=str(exclusion.evidence_chunk_id),
                     reason=exclusion.reason.value,
                     ordinal=ordinal,
+                )
+            )
+
+
+def _ordinals(value: tuple[int, ...]) -> str:
+    return json.dumps(value, separators=(",", ":"))
+
+
+def _load_ordinals(value: str) -> tuple[int, ...]:
+    try:
+        parsed = _ORDINALS.validate_json(value, strict=True)
+        if not parsed or any(item < 1 for item in parsed):
+            raise ValueError
+        return parsed
+    except (ValueError, TypeError, ValidationError):
+        raise _invalid_state() from None
+
+
+class SqlAlchemyRuntimeContextRepository(RuntimeContextRepository):
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def get_snapshot(self, runtime_context_id: RuntimeContextId) -> RuntimeContextSnapshot:
+        row = self._session.scalars(
+            select(RuntimeContextRow).where(
+                RuntimeContextRow.runtime_context_id == str(runtime_context_id)
+            )
+        ).one_or_none()
+        if row is None:
+            raise EntityNotFoundError(f"runtime context not found: {runtime_context_id}")
+        return self._hydrate(row)
+
+    def list_snapshots(
+        self, context_package_id: ContextPackageId
+    ) -> tuple[RuntimeContextSnapshot, ...]:
+        rows = self._session.scalars(
+            select(RuntimeContextRow)
+            .where(RuntimeContextRow.context_package_id == str(context_package_id))
+            .order_by(RuntimeContextRow.sequence_id)
+        ).all()
+        return tuple(self._hydrate(row) for row in rows)
+
+    def get_artifact(self, artifact_id: ArtifactId) -> ArtifactRecord:
+        row = self._session.get(RuntimeArtifactRow, str(artifact_id))
+        if row is None:
+            raise EntityNotFoundError(f"runtime artifact not found: {artifact_id}")
+        try:
+            return ArtifactRecord(
+                artifact_id=ArtifactId(row.artifact_id),
+                content_hash=row.content_hash,
+                byte_size=row.byte_size,
+                estimated_tokens=row.estimated_tokens,
+                policy_version=row.policy_version,
+            )
+        except (ValueError, InputValidationError):
+            raise _invalid_state() from None
+
+    def get_reference(self, reference_id: ContextReferenceId) -> ArtifactReference:
+        row = self._session.get(RuntimeContextReferenceRow, str(reference_id))
+        if row is None:
+            raise EntityNotFoundError(f"context reference not found: {reference_id}")
+        return self._reference(row)
+
+    def _reference(self, row: RuntimeContextReferenceRow) -> ArtifactReference:
+        try:
+            return ArtifactReference(
+                reference_id=ContextReferenceId(row.reference_id),
+                artifact_id=ArtifactId(row.artifact_id),
+                context_package_id=ContextPackageId(row.context_package_id),
+                source_ordinals=_load_ordinals(row.source_ordinals),
+                content_hash=row.content_hash,
+                source_estimated_tokens=row.source_estimated_tokens,
+                reference_estimated_tokens=row.reference_estimated_tokens,
+            )
+        except (ValueError, InputValidationError):
+            raise _invalid_state() from None
+
+    def _hydrate(self, row: RuntimeContextRow) -> RuntimeContextSnapshot:
+        snapshot = load_payload(_RUNTIME_CONTEXT, row.payload)
+        package = SqlAlchemyContextRepository(self._session).get_package(
+            ContextPackageId(row.context_package_id)
+        )
+        entry_rows = self._session.scalars(
+            select(RuntimeContextEntryRow)
+            .where(RuntimeContextEntryRow.runtime_context_id == row.runtime_context_id)
+            .order_by(RuntimeContextEntryRow.ordinal)
+        ).all()
+        decision_rows = self._session.scalars(
+            select(RuntimeContextDecisionRow)
+            .where(RuntimeContextDecisionRow.runtime_context_id == row.runtime_context_id)
+            .order_by(RuntimeContextDecisionRow.ordinal)
+        ).all()
+        if (
+            str(snapshot.runtime_context_id) != row.runtime_context_id
+            or str(snapshot.context_package_id) != row.context_package_id
+            or str(snapshot.job_version_id) != row.job_version_id
+            or snapshot.created_at.isoformat() != row.created_at
+            or package.context_package_id != snapshot.context_package_id
+            or package.job_version_id != snapshot.job_version_id
+            or snapshot.source_entry_count != len(package.entries)
+            or snapshot.source_estimated_tokens != package.total_estimated_tokens
+            or snapshot.packaging_overhead_tokens != package.packaging_overhead_tokens
+            or tuple(self._entry_row_identity(item) for item in entry_rows)
+            != tuple(self._entry_identity(item) for item in snapshot.entries)
+            or tuple(self._decision_row_identity(item) for item in decision_rows)
+            != tuple(self._decision_identity(item) for item in snapshot.decisions)
+        ):
+            raise _invalid_state()
+        try:
+            supersessions = tuple(
+                ContextSupersession(
+                    obsolete_ordinal=decision.source_ordinals[0],
+                    replacement_ordinal=decision.retained_source_ordinals[0],
+                )
+                for decision in snapshot.decisions
+                if decision.reason is CompactionDecisionReason.EXPLICITLY_OBSOLETE
+            )
+            expected_plan = RuntimeContextPolicy().compact(
+                package,
+                runtime_context_id=snapshot.runtime_context_id,
+                max_tokens=snapshot.max_tokens,
+                created_at=snapshot.created_at,
+                correlation_id=snapshot.correlation_id,
+                run_id=snapshot.run_id,
+                supersessions=supersessions,
+            )
+        except (IndexError, JobHunterError, ValueError):
+            raise _invalid_state() from None
+        if expected_plan.snapshot != snapshot:
+            raise _invalid_state()
+        referenced_entries = tuple(
+            item for item in snapshot.entries if item.reference_id is not None
+        )
+        try:
+            references = tuple(
+                self.get_reference(item.reference_id)
+                for item in referenced_entries
+                if item.reference_id is not None
+            )
+        except EntityNotFoundError:
+            raise _invalid_state() from None
+        expected_artifacts = {item.reference.reference_id: item for item in expected_plan.artifacts}
+        for entry in snapshot.entries:
+            sources = tuple(package.entries[ordinal - 1] for ordinal in entry.source_ordinals)
+            if any(source.kind is not entry.kind for source in sources):
+                raise _invalid_state()
+            matching_sources = tuple(
+                source for source in sources if source.content_hash == entry.content_hash
+            )
+            if not matching_sources:
+                raise _invalid_state()
+            if entry.inline_content is not None:
+                if any(source.content != entry.inline_content for source in matching_sources):
+                    raise _invalid_state()
+            else:
+                reference = next(
+                    (item for item in references if item.reference_id == entry.reference_id), None
+                )
+                if (
+                    reference is None
+                    or reference.context_package_id != snapshot.context_package_id
+                    or reference.source_ordinals != entry.source_ordinals
+                    or reference.content_hash != entry.content_hash
+                ):
+                    raise _invalid_state()
+                try:
+                    record = self.get_artifact(reference.artifact_id)
+                except EntityNotFoundError:
+                    raise _invalid_state() from None
+                source = matching_sources[0]
+                expected_artifact = expected_artifacts.get(reference.reference_id)
+                if (
+                    expected_artifact is None
+                    or expected_artifact.reference != reference
+                    or expected_artifact.record != record
+                    or record.content_hash != source.content_hash
+                    or record.byte_size != len(source.content.encode())
+                    or record.estimated_tokens != source.estimated_tokens
+                ):
+                    raise _invalid_state()
+        return snapshot
+
+    @staticmethod
+    def _entry_identity(entry: RuntimeContextEntry) -> tuple[object, ...]:
+        return (
+            entry.kind.value,
+            entry.source_ordinals,
+            entry.content_hash,
+            str(entry.reference_id) if entry.reference_id is not None else None,
+            entry.estimated_tokens,
+            int(entry.protected),
+            entry.priority.value,
+            entry.retention_class.value,
+        )
+
+    @staticmethod
+    def _entry_row_identity(row: RuntimeContextEntryRow) -> tuple[object, ...]:
+        return (
+            row.kind,
+            _load_ordinals(row.source_ordinals),
+            row.content_hash,
+            row.reference_id,
+            row.estimated_tokens,
+            row.protected,
+            row.priority,
+            row.retention_class,
+        )
+
+    @staticmethod
+    def _decision_identity(decision: CompactionDecision) -> tuple[object, ...]:
+        return (
+            decision.source_ordinals,
+            decision.reason.value,
+            decision.retained_source_ordinals,
+        )
+
+    @staticmethod
+    def _decision_row_identity(row: RuntimeContextDecisionRow) -> tuple[object, ...]:
+        return (
+            _load_ordinals(row.source_ordinals),
+            row.reason,
+            _load_ordinals(row.retained_source_ordinals),
+        )
+
+    def add_plan(self, plan: RuntimeContextPlan) -> None:
+        snapshot = plan.snapshot
+        self._session.add(
+            RuntimeContextRow(
+                runtime_context_id=str(snapshot.runtime_context_id),
+                context_package_id=str(snapshot.context_package_id),
+                job_version_id=str(snapshot.job_version_id),
+                created_at=snapshot.created_at.isoformat(),
+                payload=dump_payload(_RUNTIME_CONTEXT, snapshot),
+            )
+        )
+        references_by_id = {
+            artifact.reference.reference_id: artifact for artifact in plan.artifacts
+        }
+        for planned in plan.artifacts:
+            existing_artifact = self._session.get(
+                RuntimeArtifactRow, str(planned.record.artifact_id)
+            )
+            if existing_artifact is None:
+                self._session.add(
+                    RuntimeArtifactRow(
+                        artifact_id=str(planned.record.artifact_id),
+                        content_hash=planned.record.content_hash,
+                        byte_size=planned.record.byte_size,
+                        estimated_tokens=planned.record.estimated_tokens,
+                        policy_version=planned.record.policy_version,
+                    )
+                )
+            elif self.get_artifact(planned.record.artifact_id) != planned.record:
+                raise ConflictError("runtime artifact metadata conflicts")
+            existing_reference = self._session.get(
+                RuntimeContextReferenceRow, str(planned.reference.reference_id)
+            )
+            if existing_reference is None:
+                reference = planned.reference
+                self._session.add(
+                    RuntimeContextReferenceRow(
+                        reference_id=str(reference.reference_id),
+                        artifact_id=str(reference.artifact_id),
+                        context_package_id=str(reference.context_package_id),
+                        source_ordinals=_ordinals(reference.source_ordinals),
+                        content_hash=reference.content_hash,
+                        source_estimated_tokens=reference.source_estimated_tokens,
+                        reference_estimated_tokens=reference.reference_estimated_tokens,
+                    )
+                )
+            elif self._reference(existing_reference) != planned.reference:
+                raise ConflictError("runtime context reference conflicts")
+        for ordinal, entry in enumerate(snapshot.entries, start=1):
+            self._session.add(
+                RuntimeContextEntryRow(
+                    runtime_context_id=str(snapshot.runtime_context_id),
+                    ordinal=ordinal,
+                    kind=entry.kind.value,
+                    source_ordinals=_ordinals(entry.source_ordinals),
+                    content_hash=entry.content_hash,
+                    reference_id=(
+                        str(entry.reference_id) if entry.reference_id is not None else None
+                    ),
+                    estimated_tokens=entry.estimated_tokens,
+                    protected=int(entry.protected),
+                    priority=entry.priority.value,
+                    retention_class=entry.retention_class.value,
+                )
+            )
+            if entry.reference_id is None:
+                continue
+            planned = references_by_id.get(entry.reference_id)
+            if planned is None:
+                raise DependencyUnavailableError("runtime context plan is invalid")
+        for ordinal, decision in enumerate(snapshot.decisions, start=1):
+            self._session.add(
+                RuntimeContextDecisionRow(
+                    runtime_context_id=str(snapshot.runtime_context_id),
+                    ordinal=ordinal,
+                    source_ordinals=_ordinals(decision.source_ordinals),
+                    reason=decision.reason.value,
+                    retained_source_ordinals=_ordinals(decision.retained_source_ordinals),
                 )
             )

@@ -1,0 +1,34 @@
+{
+  "dataset_version": "context-runtime-synthetic-v1",
+  "policy_version": "runtime-context-policy-v1",
+  "synthetic_fixture": true,
+  "cases": [
+    {
+      "case_id": "large-reference",
+      "protected": [
+        "Synthetic Python platform requirement",
+        "Use only grounded synthetic facts",
+        "context preparation",
+        "Synthetic platform engineer profile"
+      ],
+      "evidence": [
+        "synthetic0 synthetic1 synthetic2 synthetic3 synthetic4 synthetic5 synthetic6 synthetic7 synthetic8 synthetic9 synthetic10 synthetic11 synthetic12 synthetic13 synthetic14 synthetic15 synthetic16 synthetic17 synthetic18 synthetic19 synthetic20 synthetic21 synthetic22 synthetic23 synthetic24 synthetic25 synthetic26 synthetic27 synthetic28 synthetic29 synthetic30 synthetic31 synthetic32 synthetic33 synthetic34 synthetic35 synthetic36 synthetic37 synthetic38 synthetic39 synthetic40 synthetic41 synthetic42 synthetic43 synthetic44 synthetic45 synthetic46 synthetic47 synthetic48 synthetic49 synthetic50 synthetic51 synthetic52 synthetic53 synthetic54 synthetic55 synthetic56 synthetic57 synthetic58 synthetic59 synthetic60 synthetic61 synthetic62 synthetic63 synthetic64 synthetic65 synthetic66 synthetic67 synthetic68 synthetic69 synthetic70 synthetic71 synthetic72 synthetic73 synthetic74 synthetic75 synthetic76 synthetic77 synthetic78 synthetic79 synthetic80 synthetic81 synthetic82 synthetic83 synthetic84 synthetic85 synthetic86 synthetic87 synthetic88 synthetic89"
+      ],
+      "max_tokens": 45
+    },
+    {
+      "case_id": "exact-duplicate",
+      "protected": [
+        "Synthetic evaluation requirement",
+        "Use only grounded synthetic facts",
+        "context preparation",
+        "Synthetic evaluation profile"
+      ],
+      "evidence": [
+        "repeat0 repeat1 repeat2 repeat3 repeat4 repeat5 repeat6 repeat7 repeat8 repeat9 repeat10 repeat11 repeat12 repeat13 repeat14 repeat15 repeat16 repeat17 repeat18 repeat19 repeat20 repeat21 repeat22 repeat23 repeat24 repeat25 repeat26 repeat27 repeat28 repeat29 repeat30 repeat31 repeat32 repeat33 repeat34 repeat35 repeat36 repeat37 repeat38 repeat39 repeat40 repeat41 repeat42 repeat43 repeat44 repeat45 repeat46 repeat47 repeat48 repeat49 repeat50 repeat51 repeat52 repeat53 repeat54 repeat55 repeat56 repeat57 repeat58 repeat59",
+        "repeat0 repeat1 repeat2 repeat3 repeat4 repeat5 repeat6 repeat7 repeat8 repeat9 repeat10 repeat11 repeat12 repeat13 repeat14 repeat15 repeat16 repeat17 repeat18 repeat19 repeat20 repeat21 repeat22 repeat23 repeat24 repeat25 repeat26 repeat27 repeat28 repeat29 repeat30 repeat31 repeat32 repeat33 repeat34 repeat35 repeat36 repeat37 repeat38 repeat39 repeat40 repeat41 repeat42 repeat43 repeat44 repeat45 repeat46 repeat47 repeat48 repeat49 repeat50 repeat51 repeat52 repeat53 repeat54 repeat55 repeat56 repeat57 repeat58 repeat59"
+      ],
+      "max_tokens": 45
+    }
+  ]
+}

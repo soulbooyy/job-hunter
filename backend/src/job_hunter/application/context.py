@@ -3,7 +3,13 @@
 from dataclasses import dataclass
 from datetime import datetime
 
-from job_hunter.application.ports import Clock, IdGenerator, UnitOfWorkFactory
+from job_hunter.application.execution import serialized_result_size
+from job_hunter.application.ports import (
+    CapabilityExecutionGuard,
+    Clock,
+    IdGenerator,
+    UnitOfWorkFactory,
+)
 from job_hunter.domain.context import (
     CONTEXT_BUILDER_VERSION,
     CONTEXT_PACKAGING_OVERHEAD_TOKENS,
@@ -68,7 +74,14 @@ class BuildContextPackage:
         self._clock = clock
         self._id_generator = id_generator
 
-    def execute(self, command: BuildContextPackageCommand) -> BuildContextPackageResult:
+    def execute(
+        self,
+        command: BuildContextPackageCommand,
+        *,
+        execution_guard: CapabilityExecutionGuard | None = None,
+    ) -> BuildContextPackageResult:
+        if execution_guard is not None:
+            execution_guard.check()
         try:
             unit_of_work = self._unit_of_work_factory()
         except JobHunterError:
@@ -136,7 +149,30 @@ class BuildContextPackage:
                 run_id=command.run_id,
                 exclusions=assembly.exclusions,
             )
+            result = BuildContextPackageResult(
+                context_package_id=package.context_package_id,
+                retrieval_run_id=package.retrieval_run_id,
+                total_estimated_tokens=package.total_estimated_tokens,
+                max_tokens=package.max_tokens,
+                created_at=package.created_at,
+                correlation_id=package.correlation_id,
+                run_id=package.run_id,
+            )
             unit_of_work.context.add_package(package)
+            if execution_guard is not None:
+                execution_guard.check_before_commit(
+                    result_bytes=serialized_result_size(
+                        (
+                            str(result.context_package_id),
+                            str(result.retrieval_run_id),
+                            result.total_estimated_tokens,
+                            result.max_tokens,
+                            result.created_at.isoformat(),
+                            str(result.correlation_id),
+                            str(result.run_id),
+                        )
+                    )
+                )
             unit_of_work.commit()
         except JobHunterError:
             unit_of_work.rollback()
@@ -146,12 +182,4 @@ class BuildContextPackage:
             raise DependencyUnavailableError("context dependency is unavailable") from None
         finally:
             unit_of_work.close()
-        return BuildContextPackageResult(
-            context_package_id=package.context_package_id,
-            retrieval_run_id=package.retrieval_run_id,
-            total_estimated_tokens=package.total_estimated_tokens,
-            max_tokens=package.max_tokens,
-            created_at=package.created_at,
-            correlation_id=package.correlation_id,
-            run_id=package.run_id,
-        )
+        return result

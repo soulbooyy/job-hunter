@@ -13,6 +13,7 @@ from job_hunter.domain.ids import (
     QuickScreenResultId,
     RequirementId,
     RetrievalRunId,
+    RuntimeContextId,
     SourceReferenceId,
     SourceSnapshotId,
     TriageDecisionId,
@@ -60,3 +61,6 @@ class UuidIdGenerator:
 
     def new_context_package_id(self) -> ContextPackageId:
         return ContextPackageId(f"context-package-{uuid4().hex}")
+
+    def new_runtime_context_id(self) -> RuntimeContextId:
+        return RuntimeContextId(f"runtime-context-{uuid4().hex}")

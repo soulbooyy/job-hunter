@@ -3,7 +3,9 @@
 from dataclasses import dataclass, replace
 from datetime import datetime
 
+from job_hunter.application.execution import serialized_result_size
 from job_hunter.application.ports import (
+    CapabilityExecutionGuard,
     Clock,
     EvidenceRetriever,
     IdGenerator,
@@ -175,7 +177,14 @@ class RetrieveEvidence:
         self._id_generator = id_generator
         self._eligibility = EvidenceEligibilityPolicy()
 
-    def execute(self, command: RetrieveEvidenceCommand) -> RetrieveEvidenceResult:
+    def execute(
+        self,
+        command: RetrieveEvidenceCommand,
+        *,
+        execution_guard: CapabilityExecutionGuard | None = None,
+    ) -> RetrieveEvidenceResult:
+        if execution_guard is not None:
+            execution_guard.check()
         try:
             unit_of_work = self._unit_of_work_factory()
         except JobHunterError:
@@ -368,7 +377,87 @@ class RetrieveEvidence:
                 query_count=query_count,
                 supplemental_query_text=supplemental_query_text,
             )
+            result = RetrieveEvidenceResult(
+                retrieval_run_id=retrieval_run.retrieval_run_id,
+                requirement_id=retrieval_run.requirement_id,
+                job_version_id=retrieval_run.job_version_id,
+                strategy=retrieval_run.strategy,
+                retriever_version=retrieval_run.retriever_version,
+                status=retrieval_run.status,
+                hits=retrieval_run.hits,
+                exclusions=retrieval_run.exclusions,
+                eligible_count=retrieval_run.eligible_count,
+                eligible_estimated_tokens=retrieval_run.eligible_estimated_tokens,
+                selected_estimated_tokens=retrieval_run.selected_estimated_tokens,
+                created_at=retrieval_run.created_at,
+                correlation_id=retrieval_run.correlation_id,
+                run_id=retrieval_run.run_id,
+                policy_version=retrieval_run.policy_version,
+                initial_strategy=retrieval_run.initial_strategy,
+                decision_reason=retrieval_run.decision_reason,
+                fallback_reason=retrieval_run.fallback_reason,
+                promotion_dataset_version=retrieval_run.promotion_dataset_version,
+                semantic_ready=retrieval_run.semantic_ready,
+                query_count=retrieval_run.query_count,
+            )
             unit_of_work.retrieval.add_run(retrieval_run)
+            if execution_guard is not None:
+                execution_guard.check_before_commit(
+                    result_bytes=serialized_result_size(
+                        (
+                            str(result.retrieval_run_id),
+                            str(result.requirement_id),
+                            str(result.job_version_id),
+                            result.strategy.value,
+                            result.retriever_version,
+                            result.status.value,
+                            tuple(
+                                (
+                                    str(hit.evidence_id),
+                                    str(hit.evidence_version_id),
+                                    tuple(str(item) for item in hit.evidence_chunk_ids),
+                                    hit.rank,
+                                    hit.score,
+                                    tuple(reason.value for reason in hit.reasons),
+                                )
+                                for hit in result.hits
+                            ),
+                            tuple(
+                                (
+                                    str(exclusion.evidence_id),
+                                    str(exclusion.evidence_version_id),
+                                    exclusion.reason.value,
+                                )
+                                for exclusion in result.exclusions
+                            ),
+                            result.eligible_count,
+                            result.eligible_estimated_tokens,
+                            result.selected_estimated_tokens,
+                            result.created_at.isoformat(),
+                            str(result.correlation_id),
+                            str(result.run_id),
+                            result.policy_version,
+                            (
+                                result.initial_strategy.value
+                                if result.initial_strategy is not None
+                                else None
+                            ),
+                            (
+                                result.decision_reason.value
+                                if result.decision_reason is not None
+                                else None
+                            ),
+                            (
+                                result.fallback_reason.value
+                                if result.fallback_reason is not None
+                                else None
+                            ),
+                            result.promotion_dataset_version,
+                            result.semantic_ready,
+                            result.query_count,
+                        )
+                    )
+                )
             unit_of_work.commit()
         except JobHunterError:
             unit_of_work.rollback()
@@ -380,29 +469,7 @@ class RetrieveEvidence:
             ) from None
         finally:
             unit_of_work.close()
-        return RetrieveEvidenceResult(
-            retrieval_run_id=retrieval_run.retrieval_run_id,
-            requirement_id=retrieval_run.requirement_id,
-            job_version_id=retrieval_run.job_version_id,
-            strategy=retrieval_run.strategy,
-            retriever_version=retrieval_run.retriever_version,
-            status=retrieval_run.status,
-            hits=retrieval_run.hits,
-            exclusions=retrieval_run.exclusions,
-            eligible_count=retrieval_run.eligible_count,
-            eligible_estimated_tokens=retrieval_run.eligible_estimated_tokens,
-            selected_estimated_tokens=retrieval_run.selected_estimated_tokens,
-            created_at=retrieval_run.created_at,
-            correlation_id=retrieval_run.correlation_id,
-            run_id=retrieval_run.run_id,
-            policy_version=retrieval_run.policy_version,
-            initial_strategy=retrieval_run.initial_strategy,
-            decision_reason=retrieval_run.decision_reason,
-            fallback_reason=retrieval_run.fallback_reason,
-            promotion_dataset_version=retrieval_run.promotion_dataset_version,
-            semantic_ready=retrieval_run.semantic_ready,
-            query_count=retrieval_run.query_count,
-        )
+        return result
 
     def _retriever_for(self, strategy: RetrievalStrategy) -> EvidenceRetriever:
         retriever = {

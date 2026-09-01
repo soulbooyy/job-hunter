@@ -6,6 +6,7 @@ requires-python = ">=3.12,<3.13"
 dependencies = [
     "alembic>=1.14.0,<2",
     "fastapi>=0.141.1",
+    "langgraph>=1.2.11,<2",
     "pydantic>=2.13.4",
     "pydantic-settings>=2.15.0",
     "sqlalchemy>=2.0.0,<3",
@@ -44,6 +45,7 @@ preview = false
 
 [tool.pyright]
 include = ["src", "tests"]
+stubPath = "typings"
 exclude = [".venv", ".pytest_cache", ".ruff_cache"]
 pythonVersion = "3.12"
 typeCheckingMode = "strict"

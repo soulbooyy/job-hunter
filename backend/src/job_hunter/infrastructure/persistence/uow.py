@@ -11,8 +11,9 @@ from job_hunter.application.ports import (
     ContextRepository,
     JobRepository,
     RetrievalRepository,
+    RuntimeContextRepository,
+    RuntimeContextUnitOfWork,
     ScreeningRepository,
-    UnitOfWork,
 )
 from job_hunter.errors import ConflictError, DependencyUnavailableError, StaleWriteError
 from job_hunter.infrastructure.persistence.repositories import (
@@ -20,6 +21,7 @@ from job_hunter.infrastructure.persistence.repositories import (
     SqlAlchemyContextRepository,
     SqlAlchemyJobRepository,
     SqlAlchemyRetrievalRepository,
+    SqlAlchemyRuntimeContextRepository,
     SqlAlchemyScreeningRepository,
 )
 
@@ -31,7 +33,7 @@ def _is_stale_sqlite_snapshot(error: OperationalError) -> bool:
     ) in {sqlite3.SQLITE_BUSY_SNAPSHOT, sqlite3.SQLITE_LOCKED}
 
 
-class SqlAlchemyUnitOfWork(UnitOfWork):
+class SqlAlchemyUnitOfWork(RuntimeContextUnitOfWork):
     def __init__(self, session: Session) -> None:
         self._session = session
         self._jobs = SqlAlchemyJobRepository(session)
@@ -39,6 +41,7 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
         self._screening = SqlAlchemyScreeningRepository(session)
         self._retrieval = SqlAlchemyRetrievalRepository(session)
         self._context = SqlAlchemyContextRepository(session)
+        self._runtime_context = SqlAlchemyRuntimeContextRepository(session)
         self._closed = False
 
     @property
@@ -60,6 +63,10 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
     @property
     def context(self) -> ContextRepository:
         return self._context
+
+    @property
+    def runtime_context(self) -> RuntimeContextRepository:
+        return self._runtime_context
 
     def commit(self) -> None:
         try:
@@ -103,5 +110,5 @@ class SqlAlchemyUnitOfWorkFactory:
     def __init__(self, session_factory: sessionmaker[Session]) -> None:
         self._session_factory = session_factory
 
-    def __call__(self) -> UnitOfWork:
+    def __call__(self) -> RuntimeContextUnitOfWork:
         return SqlAlchemyUnitOfWork(self._session_factory())

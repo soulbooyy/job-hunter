@@ -1,5 +1,6 @@
 """Stable identifiers used across workflow and trace boundaries."""
 
+import hashlib
 from dataclasses import dataclass
 
 
@@ -88,3 +89,50 @@ class RetrievalRunId(_StableId):
 @dataclass(frozen=True, slots=True)
 class ContextPackageId(_StableId):
     """Stable identity of one immutable, budgeted context package."""
+
+
+@dataclass(frozen=True, slots=True)
+class RuntimeContextId(_StableId):
+    """Stable identity of one immutable runtime-context projection."""
+
+
+@dataclass(frozen=True, slots=True)
+class ArtifactId(_StableId):
+    """Content-addressed identity for one redacted local derivative artifact."""
+
+    @classmethod
+    def from_content_hash(cls, content_hash: str) -> "ArtifactId":
+        if len(content_hash) != 64 or any(
+            value not in "0123456789abcdef" for value in content_hash
+        ):
+            raise ValueError("content hash must be lowercase SHA-256")
+        return cls(f"artifact-{content_hash}")
+
+
+@dataclass(frozen=True, slots=True)
+class ContextReferenceId(_StableId):
+    """Stable identity for one source-scoped artifact reference."""
+
+    @classmethod
+    def from_source(
+        cls,
+        context_package_id: ContextPackageId,
+        source_ordinals: tuple[int, ...],
+        content_hash: str,
+    ) -> "ContextReferenceId":
+        if not source_ordinals or any(value < 1 for value in source_ordinals):
+            raise ValueError("source ordinals must be positive")
+        identity = ":".join(
+            (
+                str(context_package_id),
+                ",".join(str(value) for value in source_ordinals),
+                content_hash,
+            )
+        )
+        digest = hashlib.sha256(identity.encode()).hexdigest()
+        return cls(f"context-reference-{digest[:32]}")
+
+
+@dataclass(frozen=True, slots=True)
+class WorkflowRunId(_StableId):
+    """Stable identity for one governed workflow execution."""

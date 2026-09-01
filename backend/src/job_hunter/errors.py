@@ -49,3 +49,15 @@ class ContextBudgetExceededError(JobHunterError):
     """Protected context plus packaging overhead exceeds the hard final budget."""
 
     code = "context_budget_exceeded"
+
+
+class CapabilityDeniedError(JobHunterError):
+    """A workflow capability invocation is outside its static policy."""
+
+    code = "capability_denied"
+
+
+class BudgetExceededError(JobHunterError):
+    """A versioned workflow or capability budget was exceeded."""
+
+    code = "budget_exceeded"
