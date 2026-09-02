@@ -221,8 +221,9 @@ Fake model、domain、contract、workflow、repository、rendering invariants、
 ./scripts/semantic-setup 显式获取并校验固定版本的本地 ONNX 模型
 ./scripts/hybrid-eval    显式运行本地模型 synthetic Hybrid evaluation
 ./scripts/context-eval   运行 deterministic synthetic RuntimeContext mechanics evaluation
-./scripts/eval-live      explicit live evaluation; never implicit
 ```
+
+当前尚未实现 live-evaluation 入口。只有 primary provider/model 通过 admission 后才能增加该入口；它必须保持显式触发，且不得进入默认 setup 与 check workflow。
 
 `./scripts/check` 至少执行：
 

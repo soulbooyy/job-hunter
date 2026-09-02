@@ -223,8 +223,9 @@ The repository root must provide stable wrapper commands. Their underlying imple
 ./scripts/semantic-setup explicitly acquire and verify the pinned local ONNX model
 ./scripts/hybrid-eval    run explicit local-model synthetic Hybrid evaluation
 ./scripts/context-eval   run deterministic synthetic RuntimeContext mechanics evaluation
-./scripts/eval-live      run explicit live evaluation; never implicit
 ```
+
+A live-evaluation entry point is not currently implemented. Add it only after a primary provider/model is admitted; it must remain explicit and outside the default setup and check workflows.
 
 `./scripts/check` must eventually include:
 
